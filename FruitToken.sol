@@ -19,12 +19,34 @@ abstract contract ERC20 {
 }
 
 
-contract store {
+contract Store {
+    StoreHubInterface public storeHub;
+    address public owner;
+    
+    constructor(address _storeHubAddress) {  
+        storeHub = StoreHubInterface(_storeHubAddress);
+    }
+    
+    function sendERC20Token(address _tokenContract, address _receiver, uint256 _value) external { 
+        require(msg.sender == owner);
+        ERC20 erc20Contract = ERC20(_tokenContract);
+        erc20Contract.transferFrom(address(this), _receiver, _value);
+    }
+    
+    fallback() external payable {
+  
+    }
+    
+    receive() external payable {
+
+    }
+    
+    
     
 }
 
 
-contract storeHub is StoreHubInterface {
+contract StoreHub is StoreHubInterface {
     
     address public deployer;
     address public malusTokenAddress;
@@ -40,6 +62,6 @@ contract storeHub is StoreHubInterface {
 }
 
 
-contract FruitToken {
+contract FruitToken is StoreHub {
     
 }
