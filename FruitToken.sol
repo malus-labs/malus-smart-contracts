@@ -20,11 +20,14 @@ abstract contract ERC20 {
 
 
 contract Store {
+    
+    StoreExtensionInterface public storeExtension;
     ERC20 public storeHub;
     address public owner;
     uint256 public stake;
     
-    constructor(address _storeHubAddress) {  
+    constructor(address _storeHubAddress) { 
+        owner = msg.sender;
         storeHub = ERC20(_storeHubAddress);
     }
     
@@ -34,10 +37,11 @@ contract Store {
         erc20Contract.transferFrom(address(this), _receiver, _value);
     }
     
-    function updateData(uint256 _stake, address _owner) external {
+    function updateData(uint256 _stake, address _owner, address _storeExtension) external {
         require(msg.sender == address(storeHub));
         stake = _stake;
         owner = _owner;
+        storeExtension = StoreExtensionInterface(_storeExtension);
     }
     
     fallback() external payable {
@@ -49,14 +53,27 @@ contract Store {
     }
     
     function _createPoints() private {
-        if(stake > 0) {
-              uint256 sevenPercentOfPayment = (msg.value * 700) / 10000;
-              stake -= sevenPercentOfPayment;
-              require(sevenPercentOfPayment <= stake);  
-              storeHub.mint{value: msg.value}(sevenPercentOfPayment, stake); 
+        uint256 sevenPercentOfPayment = (msg.value * 700) / 10000;
+        
+        if(address(storeExtension) == address(0)) {
+            if(stake > 0) {
+                require(sevenPercentOfPayment <= stake);
+                stake -= sevenPercentOfPayment;
+                storeHub.mint{value: msg.value}(sevenPercentOfPayment, stake); 
+            }
+            
+            storeHub.mint{value: msg.value}(0, stake);
         }
         else {
-            storeHub.mint{value: msg.value}(0, stake);
+            if(stake > 0) {
+                uint256 balance = msg.value - sevenPercentOfPayment;
+                require(sevenPercentOfPayment <= stake);
+                stake -= sevenPercentOfPayment;
+                storeHub.mint{value: sevenPercentOfPayment}(sevenPercentOfPayment, stake); 
+                storeExtension.processPayment{value: balance}(msg.sender);
+            }
+            
+            storeExtension.processPayment{value: msg.value}(msg.sender);
         }
     }
 }
@@ -64,7 +81,7 @@ contract Store {
 
 contract StoreHub is StoreHubInterface {
     
-    address public deployer;
+    //address public deployer;
     address public malusTokenAddress;
     address public firstStoreAddress;
     
