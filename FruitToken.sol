@@ -4,6 +4,18 @@ pragma solidity ^0.8.0;
 interface StoreHubInterface { 
     function deployStore() external; 
     function isStoreValid(address _store) external view returns (bool); 
+    function addStake(address _store, uint256 _amount) external;
+    function removeStake(address _store, uint256 _amount) external;
+    /*
+    function provideColateralRelief(uint256 _amount, uint256 _rate) external;
+    function removeColateralRelief(uint256 _amount) external;
+    function sellCollateral(address _store, uint256 _amount, uint16 _rate) external;
+    function transferCollateral(address _store, uint256 _amount) external;
+    function setMetaData(string[6] calldata _metaData) external;
+    function updateExtension(address payable _newExtension) external;
+    function updateStoreOwner(address payable _owner) external;
+    function depositEther() external payable;
+    */
 }
 
 
@@ -79,7 +91,7 @@ contract Store {
 }
 
 
-contract StoreHub is StoreHubInterface {
+abstract contract StoreHub is StoreHubInterface {
     
     event StoreCreated(address indexed store, address owner, uint256 creationDate); 
     event OwnerUpdated(address indexed store, address newOwner);
@@ -90,14 +102,23 @@ contract StoreHub is StoreHubInterface {
     event CollateralReleased(address indexed store, uint256 amountReleased, uint256 collateral, uint256 avaiableFunds); 
     event MetaDataUpdated(address indexed store, string[6] metaData);
     
+    Store currentStore;
     address public malusTokenAddress;
     address public firstStoreAddress;
     
-    mapping (address => bool) isValidStore;
+    mapping(address => bool) isValidStore;
+    mapping(address => bool) isStoreOwner;
+    mapping(address => uint256) stakePerStore;
+    
+    modifier onlyOwner() {
+        require(isStoreOwner[msg.sender] == true);
+        _;
+    }
     
     function deployStore() override external {
         Store newStore = new Store(address(this));
         isValidStore[address(newStore)] = true;
+        isStoreOwner[address(newStore)] = true;
         emit StoreCreated(address(newStore), msg.sender, block.timestamp);
     }
     
@@ -107,6 +128,18 @@ contract StoreHub is StoreHubInterface {
 }
 
 
-contract FruitToken is StoreHub {
+contract Stake is StoreHub {
+    
+    function addStake(address _store, uint256 _amount) onlyOwner override external {
+        
+    }
+    
+    function removeStake(address _store, uint256 _amount) onlyOwner override external {
+        
+    }
+}
+
+
+contract FruitToken is Stake {
     
 }
