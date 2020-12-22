@@ -81,16 +81,28 @@ contract Store {
 
 contract StoreHub is StoreHubInterface {
     
-    //address public deployer;
+    event StoreCreated(address indexed store, address owner, uint256 creationDate); 
+    event OwnerUpdated(address indexed store, address newOwner);
+    event StakeUpdated(address indexed store, uint256 stake, uint256 avaiableFunds);
+    event BalanceUpdated(address indexed store, uint256 amount);
+    event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 avaiableFunds, uint256 rate);
+    event CollateralGenerated(address indexed store, uint256 amountGenerated, uint256 collateral, uint256 stake, uint256 avaiableFunds);
+    event CollateralReleased(address indexed store, uint256 amountReleased, uint256 collateral, uint256 avaiableFunds); 
+    event MetaDataUpdated(address indexed store, string[6] metaData);
+    
     address public malusTokenAddress;
     address public firstStoreAddress;
     
+    mapping (address => bool) isValidStore;
+    
     function deployStore() override external {
-        
+        Store newStore = new Store(address(this));
+        isValidStore[address(newStore)] = true;
+        emit StoreCreated(address(newStore), msg.sender, block.timestamp);
     }
     
     function isStoreValid(address _store) override external view returns (bool) {
-        
+        return isValidStore[_store];
     }
 }
 
