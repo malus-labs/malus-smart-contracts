@@ -6,11 +6,11 @@ interface StoreHubInterface {
     function isStoreValid(address _store) external view returns (bool); 
     function addStake(address payable _store, uint256 _amount) external;
     function removeStake(address payable _store, uint256 _amount) external;
-    /*
     function provideColateralRelief(uint256 _amount, uint256 _rate) external;
     function removeColateralRelief(uint256 _amount) external;
     function sellCollateral(address _store, uint256 _amount, uint16 _rate) external;
     function transferCollateral(address _store, uint256 _amount) external;
+    /*
     function setMetaData(string[6] calldata _metaData) external;
     function updateExtension(address payable _newExtension) external;
     function updateStoreOwner(address payable _owner) external;
@@ -93,11 +93,11 @@ abstract contract StoreHub is StoreHubInterface {
     
     event StoreCreated(address indexed store, address owner, uint256 creationDate); 
     event OwnerUpdated(address indexed store, address newOwner);
-    event StakeUpdated(address indexed store, uint256 stake, uint256 avaiableFunds);
+    event StakeUpdated(address indexed store, uint256 stake, uint256 availableFunds);
     event BalanceUpdated(address indexed store, uint256 amount);
-    event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 avaiableFunds, uint256 rate);
-    event CollateralGenerated(address indexed store, uint256 amountGenerated, uint256 collateral, uint256 stake, uint256 avaiableFunds);
-    event CollateralReleased(address indexed store, uint256 amountReleased, uint256 collateral, uint256 avaiableFunds); 
+    event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 availableFunds, uint256 rate);
+    event CollateralGenerated(address indexed store, uint256 amountGenerated, uint256 collateral, uint256 stake, uint256 availableFunds);
+    event CollateralReleased(address indexed store, uint256 amountReleased, uint256 collateral, uint256 availableFunds); 
     event MetaDataUpdated(address indexed store, string[6] metaData);
     
     address public malusTokenAddress;
@@ -106,7 +106,7 @@ abstract contract StoreHub is StoreHubInterface {
     mapping(address => bool) isValidStore;
     mapping(address => mapping(address => bool)) isStoreOwner;
     mapping(address => uint256) stakeInsideStore;
-    mapping(address => uint256) avaiableEthInsideStore;
+    mapping(address => uint256) availableEthInsideStore;
     mapping(address => address) extensionInsideStore;
     
     function deployStore() override external {
@@ -122,16 +122,16 @@ abstract contract StoreHub is StoreHubInterface {
 }
 
 
-contract Stake is StoreHub {
+abstract contract Stake is StoreHub {
     
     function addStake(address payable _store, uint256 _amount) override external { //add check malusToken later collect fee.. 
         require(isStoreOwner[_store][msg.sender] == true);
         require(_amount <= stakeInsideStore[_store]);
         Store currentStore = Store(_store);
         stakeInsideStore[_store] += _amount;
-        avaiableEthInsideStore[_store] -= _amount;
+        availableEthInsideStore[_store] -= _amount;
         currentStore.updateData(stakeInsideStore[_store], msg.sender, extensionInsideStore[_store]);
-        emit StakeUpdated(_store, stakeInsideStore[_store], avaiableEthInsideStore[_store]);
+        emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
     }
     
     function removeStake(address payable _store, uint256 _amount) override external {
@@ -139,13 +139,33 @@ contract Stake is StoreHub {
         require(_amount <= stakeInsideStore[_store]);
         Store currentStore = Store(_store);
         stakeInsideStore[_store] -= _amount;
-        avaiableEthInsideStore[_store] += _amount;
+        availableEthInsideStore[_store] += _amount;
         currentStore.updateData(stakeInsideStore[_store], msg.sender, extensionInsideStore[_store]);
-        emit StakeUpdated(_store, stakeInsideStore[_store], avaiableEthInsideStore[_store]);
+        emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
     }
 }
 
 
-contract FruitToken is Stake {
+contract Collateral is Stake {
+    
+    function provideColateralRelief(uint256 _amount, uint256 _rate) override external {
+        
+    }
+    
+    function removeColateralRelief(uint256 _amount) override external {
+        
+    }
+    
+    function sellCollateral(address _store, uint256 _amount, uint16 _rate) override external {
+        
+    }
+    
+    function transferCollateral(address _store, uint256 _amount) override external {
+        
+    }
+    
+}
+
+contract FruitToken is Collateral {
     
 }
