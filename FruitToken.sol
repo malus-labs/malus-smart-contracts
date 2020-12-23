@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 interface StoreHubInterface { 
     function deployStore() external; 
     function isStoreValid(address _store) external view returns (bool); 
-    function addStake(address _store, uint256 _amount) external;
-    function removeStake(address _store, uint256 _amount) external;
+    function addStake(address payable _store, uint256 _amount) external;
+    function removeStake(address payable _store, uint256 _amount) external;
     /*
     function provideColateralRelief(uint256 _amount, uint256 _rate) external;
     function removeColateralRelief(uint256 _amount) external;
@@ -73,7 +73,6 @@ contract Store {
                 stake -= sevenPercentOfPayment;
                 storeHub.mint{value: msg.value}(sevenPercentOfPayment, stake); 
             }
-            
             storeHub.mint{value: msg.value}(0, stake);
         }
         else {
@@ -84,7 +83,6 @@ contract Store {
                 storeHub.mint{value: sevenPercentOfPayment}(sevenPercentOfPayment, stake); 
                 storeExtension.processPayment{value: balance}(msg.sender);
             }
-            
             storeExtension.processPayment{value: msg.value}(msg.sender);
         }
     }
@@ -102,23 +100,19 @@ abstract contract StoreHub is StoreHubInterface {
     event CollateralReleased(address indexed store, uint256 amountReleased, uint256 collateral, uint256 avaiableFunds); 
     event MetaDataUpdated(address indexed store, string[6] metaData);
     
-    Store currentStore;
     address public malusTokenAddress;
     address public firstStoreAddress;
     
     mapping(address => bool) isValidStore;
-    mapping(address => bool) isStoreOwner;
-    mapping(address => uint256) stakePerStore;
-    
-    modifier onlyOwner() {
-        require(isStoreOwner[msg.sender] == true);
-        _;
-    }
+    mapping(address => mapping(address => bool)) isStoreOwner;
+    mapping(address => uint256) stakeInsideStore;
+    mapping(address => uint256) avaiableEthInsideStore;
+    mapping(address => address) extensionInsideStore;
     
     function deployStore() override external {
         Store newStore = new Store(address(this));
         isValidStore[address(newStore)] = true;
-        isStoreOwner[address(newStore)] = true;
+        isStoreOwner[address(newStore)][msg.sender] = true;
         emit StoreCreated(address(newStore), msg.sender, block.timestamp);
     }
     
@@ -130,12 +124,24 @@ abstract contract StoreHub is StoreHubInterface {
 
 contract Stake is StoreHub {
     
-    function addStake(address _store, uint256 _amount) onlyOwner override external {
-        
+    function addStake(address payable _store, uint256 _amount) override external { //add check malusToken later collect fee.. 
+        require(isStoreOwner[_store][msg.sender] == true);
+        require(_amount <= stakeInsideStore[_store]);
+        Store currentStore = Store(_store);
+        stakeInsideStore[_store] += _amount;
+        avaiableEthInsideStore[_store] -= _amount;
+        currentStore.updateData(stakeInsideStore[_store], msg.sender, extensionInsideStore[_store]);
+        emit StakeUpdated(_store, stakeInsideStore[_store], avaiableEthInsideStore[_store]);
     }
     
-    function removeStake(address _store, uint256 _amount) onlyOwner override external {
-        
+    function removeStake(address payable _store, uint256 _amount) override external {
+        require(isStoreOwner[_store][msg.sender] == true);
+        require(_amount <= stakeInsideStore[_store]);
+        Store currentStore = Store(_store);
+        stakeInsideStore[_store] -= _amount;
+        avaiableEthInsideStore[_store] += _amount;
+        currentStore.updateData(stakeInsideStore[_store], msg.sender, extensionInsideStore[_store]);
+        emit StakeUpdated(_store, stakeInsideStore[_store], avaiableEthInsideStore[_store]);
     }
 }
 
