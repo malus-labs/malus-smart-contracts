@@ -10,11 +10,9 @@ interface StoreHubInterface {
     function removeCollateralRelief(address _store, uint256 _amount, uint256 _rate) external;
     function sellCollateral(address _fromStore, address _toStore, uint256 _amount, uint16 _rate) external;
     function transferCollateral(address _fromStore, address _toStore, uint256 _amount) external;
-    /*
-    function setMetaData(string[6] calldata _metaData) external;
-    function updateExtension(address payable _newExtension) external;
-    function updateStoreOwner(address payable _owner) external;
-    */
+    function setMetaData(address _store, string[6] calldata _metaData) external;
+    function updateExtension(address payable _store, address _newExtension) external;
+    function updateStoreOwner(address payable _store, address _owner) external;
 }
 
 
@@ -147,7 +145,7 @@ abstract contract Stake is StoreHub {
 }
 
 
-contract Collateral is Stake {
+ abstract contract Collateral is Stake {
     
     function provideCollateralRelief(address _store, uint256 _amount, uint256 _rate) override external { //add check malusToken later collect fee..
         require(isStoreOwner[_store][msg.sender] == true);
@@ -189,6 +187,26 @@ contract Collateral is Stake {
     }
 }
 
-contract FruitToken is Collateral {
+
+contract General is Collateral {
+    
+    function setMetaData(address _store, string[6] calldata _metaData) override external {
+       
+        
+    }
+    
+    function updateExtension(address payable _store, address _newExtension) override external {
+   
+        
+    }
+    
+    function updateStoreOwner(address payable _store, address _owner) override external {
+     
+        
+    }
+}
+
+
+contract FruitToken is General {
     
 }
