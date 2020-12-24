@@ -6,15 +6,14 @@ interface StoreHubInterface {
     function isStoreValid(address _store) external view returns (bool); 
     function addStake(address payable _store, uint256 _amount) external;
     function removeStake(address payable _store, uint256 _amount) external;
-    function provideColateralRelief(uint256 _amount, uint256 _rate) external;
-    function removeColateralRelief(uint256 _amount) external;
-    function sellCollateral(address _store, uint256 _amount, uint16 _rate) external;
-    function transferCollateral(address _store, uint256 _amount) external;
+    function provideCollateralRelief(address _store, uint256 _amount, uint256 _rate) external;
+    function removeCollateralRelief(address _store, uint256 _amount, uint256 _rate) external;
+    function sellCollateral(address _fromStore, address _toStore, uint256 _amount, uint16 _rate) external;
+    function transferCollateral(address _fromStore, address _toStore, uint256 _amount) external;
     /*
     function setMetaData(string[6] calldata _metaData) external;
     function updateExtension(address payable _newExtension) external;
     function updateStoreOwner(address payable _owner) external;
-    function depositEther() external payable;
     */
 }
 
@@ -105,8 +104,10 @@ abstract contract StoreHub is StoreHubInterface {
     
     mapping(address => bool) isValidStore;
     mapping(address => mapping(address => bool)) isStoreOwner;
+    mapping(address => uint256) availableEthInsideStore; //
     mapping(address => uint256) stakeInsideStore;
-    mapping(address => uint256) availableEthInsideStore;
+    mapping(address => uint256) collateralInsideStore; 
+    mapping(address => mapping(uint256 => uint256)) collateralReliefInsideStore; 
     mapping(address => address) extensionInsideStore;
     
     function deployStore() override external {
@@ -126,7 +127,7 @@ abstract contract Stake is StoreHub {
     
     function addStake(address payable _store, uint256 _amount) override external { //add check malusToken later collect fee.. 
         require(isStoreOwner[_store][msg.sender] == true);
-        require(_amount <= stakeInsideStore[_store]);
+        require(_amount <= availableEthInsideStore[_store]);
         Store currentStore = Store(_store);
         stakeInsideStore[_store] += _amount;
         availableEthInsideStore[_store] -= _amount;
@@ -148,22 +149,44 @@ abstract contract Stake is StoreHub {
 
 contract Collateral is Stake {
     
-    function provideColateralRelief(uint256 _amount, uint256 _rate) override external {
-        
+    function provideCollateralRelief(address _store, uint256 _amount, uint256 _rate) override external { //add check malusToken later collect fee..
+        require(isStoreOwner[_store][msg.sender] == true);
+        require(_amount <= availableEthInsideStore[_store]);
+        require(_rate > 0 && _rate <= 10000);
+        availableEthInsideStore[_store] -= _amount;
+        collateralReliefInsideStore[_store][_rate] += _amount;
+        emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate);
     }
     
-    function removeColateralRelief(uint256 _amount) override external {
-        
+    function removeCollateralRelief(address _store, uint256 _amount, uint256 _rate) override external {
+        require(isStoreOwner[_store][msg.sender] == true);
+        require(_amount <= collateralReliefInsideStore[_store][_rate]);
+        availableEthInsideStore[_store] -= _amount;
+        collateralReliefInsideStore[_store][_rate] += _amount;
+        emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate);
     }
     
-    function sellCollateral(address _store, uint256 _amount, uint16 _rate) override external {
-        
+    function sellCollateral(address _fromStore, address _toStore, uint256 _amount, uint16 _rate) override external {
+        uint256 lost = (_amount * _rate) / 10000;
+        require(isStoreOwner[_fromStore][msg.sender] == true);
+        require(_amount <= collateralInsideStore[_fromStore]);
+        require((_amount - lost) == collateralReliefInsideStore[_toStore][_rate]);
+        collateralInsideStore[_toStore] = (collateralReliefInsideStore[_toStore][_rate] + lost);
+        collateralInsideStore[_fromStore] -= _amount;
+        availableEthInsideStore[_fromStore] = collateralReliefInsideStore[_toStore][_rate];
+        collateralReliefInsideStore[_toStore][_rate] = 0;
+        //emit CollateralGenerated(_toStore, _amount, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
+        //emit CollateralReleased(_fromStore, _amount, collateralInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
     }
     
-    function transferCollateral(address _store, uint256 _amount) override external {
-        
+    function transferCollateral(address _fromStore, address _toStore, uint256 _amount) override external {
+        require(isStoreOwner[_fromStore][msg.sender] == true);
+        require(_amount <= collateralInsideStore[_fromStore]);
+        collateralInsideStore[_toStore] += _amount;
+        collateralInsideStore[_fromStore] -= _amount;
+        emit CollateralGenerated(_toStore, _amount, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
+        emit CollateralReleased(_fromStore, _amount, collateralInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
     }
-    
 }
 
 contract FruitToken is Collateral {
