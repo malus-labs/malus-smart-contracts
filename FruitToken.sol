@@ -22,36 +22,37 @@ interface StoreExtensionInterface {
 }
 
 
-abstract contract ERC20 {
+abstract contract Proxy {
     function transferFrom(address _from, address _to, uint256 _amount) virtual public returns (bool success); 
     function mint(uint256 _amount, uint256 _updatedStake, uint256 _updatedAvailableFunds) virtual external; 
+    function withdraw(uint256 _amount) virtual external returns (bool);
 }
 
 
 contract Store {
     
     StoreExtensionInterface public storeExtension;
-    ERC20 public storeHub;
+    Proxy public storeHub;
     address public owner;
     uint256 public stake;
     
     constructor(address _storeHubAddress) { 
         owner = msg.sender;
-        storeHub = ERC20(_storeHubAddress);
+        storeHub = Proxy(_storeHubAddress);
     }
     
     function sendERC20Token(address _tokenContract, address _to, uint256 _amount) external { 
         require(msg.sender == owner);
-        ERC20 erc20Contract = ERC20(_tokenContract);
+        Proxy erc20Contract = Proxy(_tokenContract);
         erc20Contract.transferFrom(address(this), _to, _amount);
     }
     
     function sendETH(address _to, uint256 _amount) external {
         require(msg.sender == owner);
-        //availableFunds -= _amount;
-        //storeHub.mint(0, stake, availableFunds);
-        (bool success,) = _to.call{value: _amount}(""); 
-        require(success == true);
+        (bool success1) = storeHub.withdraw(_amount);
+        require(success1 == true);
+        (bool success2,) = _to.call{value: _amount}(""); 
+        require(success2 == true);
     }
     
     function updateData(uint256 _stake, address _owner, address _storeExtension) external {
@@ -76,16 +77,16 @@ contract Store {
             if(stake > 0) {
                 require(sevenPercentOfPayment <= stake);
                 stake -= sevenPercentOfPayment;
-                //storeHub.mint(sevenPercentOfPayment, stake, availableFunds);
+                storeHub.mint(sevenPercentOfPayment, stake, (msg.value - sevenPercentOfPayment));
             }
-            //storeHub.mint(0, stake, availableFunds);
+            storeHub.mint(0, stake, msg.value);
         }
         else {
             if(stake > 0) {
                 uint256 balance = msg.value - sevenPercentOfPayment;
                 require(sevenPercentOfPayment <= stake);
                 stake -= sevenPercentOfPayment;
-                //storeHub.mint(sevenPercentOfPayment, stake, availableFunds);
+                storeHub.mint(sevenPercentOfPayment, stake, (msg.value - sevenPercentOfPayment));
                 storeExtension.processPayment{value: balance}(msg.sender);
             }
             storeExtension.processPayment{value: msg.value}(msg.sender);
@@ -94,7 +95,7 @@ contract Store {
 }
 
 
-abstract contract StoreHub is StoreHubInterface {
+abstract contract StoreHub is StoreHubInterface, Proxy {
     
     event StoreCreated(address indexed store, address owner, uint256 creationDate); 
     event OwnerUpdated(address indexed store, address newOwner);
@@ -103,6 +104,7 @@ abstract contract StoreHub is StoreHubInterface {
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 availableFunds, uint256 rate);
     event CollateralGenerated(address indexed store, uint256 amountGenerated, uint256 collateral, uint256 stake, uint256 availableFunds);
     event CollateralReleased(address indexed store, uint256 amountReleased, uint256 collateral, uint256 availableFunds); 
+    event ExtensionUpdated(address indexed store, address extension);
     event MetaDataUpdated(address indexed store, string[6] metaData);
     
     address public malusTokenAddress;
@@ -125,6 +127,12 @@ abstract contract StoreHub is StoreHubInterface {
     
     function isStoreValid(address _store) override external view returns (bool) {
         return isValidStore[_store];
+    }
+    
+    function withdraw(uint256 _amount) override external returns (bool) {
+        require(isValidStore[msg.sender] == true);
+        availableEthInsideStore[msg.sender] -= _amount;
+        return true;
     }
 }
 
@@ -196,7 +204,7 @@ abstract contract Stake is StoreHub {
 }
 
 
-contract General is Collateral {
+ abstract contract General is Collateral {
     
     function setMetaData(address _store, string[6] calldata _metaData) override external {
         require(isStoreOwner[_store][msg.sender] == true);
@@ -208,6 +216,7 @@ contract General is Collateral {
         Store currentStore = Store(_store);
         extensionInsideStore[_store] = _newExtension;
         currentStore.updateData(stakeInsideStore[_store], msg.sender, extensionInsideStore[_store]);
+        emit ExtensionUpdated(_store, _newExtension);
     }
     
     function updateStoreOwner(address payable _store, address _newOwner) override external {
@@ -222,5 +231,13 @@ contract General is Collateral {
 
 
 contract FruitToken is General {
+    
+    function transferFrom(address _from, address _to, uint256 _amount) override public returns (bool success) {
+        
+    }
+    
+    function mint(uint256 _amount, uint256 _updatedStake, uint256 _updatedAvailableFunds) override external {
+        
+    }
     
 }
