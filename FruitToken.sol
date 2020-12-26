@@ -6,7 +6,7 @@ interface StoreHubInterface {
     function isStoreValid(address _store) external view returns (bool); 
     function addStake(address payable _store, uint256 _amount) external;
     function removeStake(address payable _store, uint256 _amount) external;
-    function provideCollateralRelief(address _store, uint256 _amount, uint256 _rate) external;
+    function provideCollateralRelief(address payable _store, uint256 _amount, uint256 _rate) external;
     function removeCollateralRelief(address _store, uint256 _amount, uint256 _rate) external;
     function sellCollateral(address _fromStore, address payable _toStore, uint256 _amount, uint16 _rate) external;
     function transferCollateral(address _fromStore, address payable _toStore, uint256 _amount) external;
@@ -23,6 +23,7 @@ interface StoreExtensionInterface {
 
 
 abstract contract Proxy {
+    function balanceOf(address _owner) virtual public view returns (uint balance);
     function transferFrom(address _from, address _to, uint256 _amount) virtual public returns (bool success); 
     function mint(uint256 _amount, uint256 _updatedStake, uint256 _updatedAvailableFunds) virtual external; 
     function withdraw(uint256 _amount) virtual external returns (bool);
@@ -48,9 +49,12 @@ contract Store {
     }
     
     function sendETH(address _to, uint256 _amount) external {
-        require(msg.sender == owner);
-        (bool success1) = storeHub.withdraw(_amount);
-        require(success1 == true);
+        require(msg.sender == owner || msg.sender == address(storeHub));
+        
+        if(msg.sender == owner) {
+            (bool success1) = storeHub.withdraw(_amount);
+            require(success1 == true);
+        }
         (bool success2,) = _to.call{value: _amount}(""); 
         require(success2 == true);
     }
@@ -107,8 +111,8 @@ abstract contract StoreHub is StoreHubInterface, Proxy {
     event ExtensionUpdated(address indexed store, address extension);
     event MetaDataUpdated(address indexed store, string[6] metaData);
     
-    address public malusTokenAddress;
-    address public firstStoreAddress;
+    Proxy public malusToken;
+    address public feeCollector;
     
     mapping(address => bool) isValidStore;
     mapping(address => mapping(address => bool)) isStoreOwner;
@@ -139,11 +143,19 @@ abstract contract StoreHub is StoreHubInterface, Proxy {
 
 abstract contract Stake is StoreHub {
     
-    function addStake(address payable _store, uint256 _amount) override external { //add check malusToken later collect fee.. 
+    function addStake(address payable _store, uint256 _amount) override external {  
         require(isStoreOwner[_store][msg.sender] == true);
         require(_amount <= availableEthInsideStore[_store]);
+        uint256 balanceAfterFee = _amount;
         Store currentStore = Store(_store);
-        stakeInsideStore[_store] += _amount;
+        
+        if(malusToken.balanceOf(_store) < 25000000000000000000) {
+            uint256 fee = (_amount * 200) / 10000;
+            currentStore.sendETH(address(this), fee);
+            balanceAfterFee = _amount - fee;
+        }
+        
+        stakeInsideStore[_store] += balanceAfterFee;
         availableEthInsideStore[_store] -= _amount;
         currentStore.updateData(stakeInsideStore[_store], msg.sender, extensionInsideStore[_store]);
         emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
@@ -163,12 +175,21 @@ abstract contract Stake is StoreHub {
 
  abstract contract Collateral is Stake {
     
-    function provideCollateralRelief(address _store, uint256 _amount, uint256 _rate) override external { //add check malusToken later collect fee..
+    function provideCollateralRelief(address payable _store, uint256 _amount, uint256 _rate) override external { 
         require(isStoreOwner[_store][msg.sender] == true);
         require(_amount <= availableEthInsideStore[_store]);
         require(_rate > 0 && _rate <= 10000);
+        uint256 balanceAfterFee = _amount;
+        Store currentStore = Store(_store);
+        
+        if(malusToken.balanceOf(_store) < 25000000000000000000) {
+            uint256 fee = (_amount * 200) / 10000;
+            currentStore.sendETH(address(this), fee);
+            balanceAfterFee = _amount - fee;
+        }
+        
         availableEthInsideStore[_store] -= _amount;
-        collateralReliefInsideStore[_store][_rate] += _amount;
+        collateralReliefInsideStore[_store][_rate] += balanceAfterFee;
         emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate);
     }
     
@@ -232,12 +253,73 @@ abstract contract Stake is StoreHub {
 
 contract FruitToken is General {
     
+    string public name = "Fruit Token";
+    string public symbol = "FRUT";
+    uint public decimals = 18; 
+    uint256 public totalSupply;
+    
+    event Transfer(address indexed _from, address indexed _to, uint256 _amount);
+    event Approval(address indexed _owner, address indexed _spender, uint256 _amount);
+
+    mapping (address => uint256) balances;
+    mapping (address => mapping (address => uint256)) allowed;
+    
+    function balanceOf(address _owner) override public view returns (uint balance) {
+        return balances[_owner];
+    }
+    
+    function transfer(address _to, uint256 _amount) public returns (bool success) {
+        return transferFrom(msg.sender, _to, _amount);
+    }
+    
     function transferFrom(address _from, address _to, uint256 _amount) override public returns (bool success) {
+        require(balances[_from] >= _amount);
+  
+        if(isValidStore[_to] == true) {
+            if(collateralInsideStore[_to] >= _amount) { 
+                //_burn(_from, msg.sender, _value); 
+                return true;
+            }
+            else { return false; }
+        }
         
+        if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
+            require(allowed[_from][msg.sender] >= _amount);
+            allowed[_from][msg.sender] -= _amount;
+        }
+        
+        balances[_to] += _amount;
+        balances[_from] -= _amount;
+        emit Transfer(_from, _to, _amount);
+        return true;
+    }
+    
+    function approve(address _spender, uint256 _amount) public returns (bool success) {
+        allowed[msg.sender][_spender] = _amount;
+        emit Approval(msg.sender, _spender, _amount);
+        return true;
+    }
+   
+    function allowance(address _owner, address _spender) public view returns (uint remaining) {
+        return allowed[_owner][_spender];
     }
     
     function mint(uint256 _amount, uint256 _updatedStake, uint256 _updatedAvailableFunds) override external {
-        
+ 
     }
     
+    function _burn(address _from, address _user, uint256 _amount) private { 
+        /*
+        require(balances[_from] >= _amount);
+        
+        if (_from != _user && allowed[_from][_user] > 0) {
+            require(allowed[_from][_user] >= _amount);
+            allowed[_from][_user] = allowed[_from][_user].sub(_amount);
+        }
+        
+        balances[_from] = balances[_from].sub(_amount);
+        totalSupply = totalSupply.sub(_amount);
+        emit Transfer(_user, address(0), _amount);
+        */
+    }
 }
