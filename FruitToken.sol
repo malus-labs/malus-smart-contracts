@@ -17,7 +17,6 @@ interface StoreHubInterface {
 
 
 interface StoreExtensionInterface {
-    function setRequiredAmount(uint256 _amount) external;
     function processPayment(address _sender) external payable;
 }
 
@@ -264,6 +263,11 @@ contract FruitToken is General {
     mapping (address => uint256) balances;
     mapping (address => mapping (address => uint256)) allowed;
     
+    constructor(address malusTokenAddress) {
+        malusToken = Proxy(malusTokenAddress);
+        feeCollector = msg.sender;
+    }
+    
     function balanceOf(address _owner) override public view returns (uint balance) {
         return balances[_owner];
     }
@@ -277,7 +281,7 @@ contract FruitToken is General {
   
         if(isValidStore[_to] == true) {
             if(collateralInsideStore[_to] >= _amount) { 
-                //_burn(_from, msg.sender, _value); 
+                _burn(_from, _to, _amount); 
                 return true;
             }
             else { return false; }
@@ -308,18 +312,17 @@ contract FruitToken is General {
  
     }
     
-    function _burn(address _from, address _user, uint256 _amount) private { 
-        /*
-        require(balances[_from] >= _amount);
-        
-        if (_from != _user && allowed[_from][_user] > 0) {
-            require(allowed[_from][_user] >= _amount);
-            allowed[_from][_user] = allowed[_from][_user].sub(_amount);
+    function _burn(address _from, address _store, uint256 _amount) private { 
+        if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
+            require(allowed[_from][msg.sender] >= _amount);
+            allowed[_from][msg.sender] -= _amount;
         }
         
-        balances[_from] = balances[_from].sub(_amount);
-        totalSupply = totalSupply.sub(_amount);
-        emit Transfer(_user, address(0), _amount);
-        */
+        collateralInsideStore[_store] -= _amount;
+        availableEthInsideStore[_store] += _amount;
+        balances[_from] -= _amount;
+        totalSupply -= _amount;
+        emit CollateralReleased(_store, _amount, collateralInsideStore[_store], availableEthInsideStore[_store]);
+        emit Transfer(_from, address(0), _amount);
     }
 }
