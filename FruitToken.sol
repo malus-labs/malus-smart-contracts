@@ -17,14 +17,14 @@ interface StoreHubInterface {
 
 
 interface StoreExtensionInterface {
-    function processPayment(address _sender) external payable;
+    function processPayment(address _customer) external payable;
 }
 
 
 abstract contract Proxy {
     function balanceOf(address _owner) virtual public view returns (uint balance);
     function transferFrom(address _from, address _to, uint256 _amount) virtual public returns (bool success); 
-    function mint(uint256 _amount, uint256 _updatedStake, uint256 _updatedAvailableFunds) virtual external; 
+    function mint(address _customer, uint256 _paymentReceived) virtual external returns (bool success, uint256 balance); 
     function withdraw(uint256 _amount) virtual external returns (bool);
 }
 
@@ -34,7 +34,6 @@ contract Store {
     StoreExtensionInterface public storeExtension;
     Proxy public storeHub;
     address public owner;
-    uint256 public stake;
     
     constructor(address _storeHubAddress) { 
         owner = msg.sender;
@@ -47,20 +46,26 @@ contract Store {
         erc20Contract.transferFrom(address(this), _to, _amount);
     }
     
-    function sendETH(address _to, uint256 _amount) external {
-        require(msg.sender == owner || msg.sender == address(storeHub));
+    function sendETH(address _to, address _customer, uint256 _amount) external returns (bool success) {
+        require(msg.sender == address(storeHub) || msg.sender == owner);
         
-        if(msg.sender == owner) {
+        if(_to != address(storeHub) && msg.sender == address(storeHub)) { 
+            storeExtension.processPayment{value: _amount}(_customer);
+            return true;
+        }
+        else if(msg.sender == owner) {
+            require(_to != address(storeHub));
             (bool success1) = storeHub.withdraw(_amount);
             require(success1 == true);
         }
+        
         (bool success2,) = _to.call{value: _amount}(""); 
         require(success2 == true);
+        return true;
     }
     
-    function updateData(uint256 _stake, address _owner, address _storeExtension) external {
+    function updateData(address _owner, address _storeExtension) external {
         require(msg.sender == address(storeHub));
-        stake = _stake;
         owner = _owner;
         storeExtension = StoreExtensionInterface(_storeExtension);
     }
@@ -74,25 +79,11 @@ contract Store {
     }
     
     function _createPoints() private {
-        uint256 sevenPercentOfPayment = (msg.value * 700) / 10000;
+        (bool success, uint256 balance) = storeHub.mint(msg.sender, msg.value);
+        require(success == true);
         
-        if(address(storeExtension) == address(0)) {
-            if(stake > 0) {
-                require(sevenPercentOfPayment <= stake);
-                stake -= sevenPercentOfPayment;
-                storeHub.mint(sevenPercentOfPayment, stake, (msg.value - sevenPercentOfPayment));
-            }
-            storeHub.mint(0, stake, msg.value);
-        }
-        else {
-            if(stake > 0) {
-                uint256 balance = msg.value - sevenPercentOfPayment;
-                require(sevenPercentOfPayment <= stake);
-                stake -= sevenPercentOfPayment;
-                storeHub.mint(sevenPercentOfPayment, stake, (msg.value - sevenPercentOfPayment));
-                storeExtension.processPayment{value: balance}(msg.sender);
-            }
-            storeExtension.processPayment{value: msg.value}(msg.sender);
+        if(address(storeExtension) != address(0)) {
+            storeExtension.processPayment{value: balance}(msg.sender);
         }
     }
 }
@@ -150,13 +141,13 @@ abstract contract Stake is StoreHub {
         
         if(malusToken.balanceOf(_store) < 25000000000000000000) {
             uint256 fee = (_amount * 200) / 10000;
-            currentStore.sendETH(address(this), fee);
+            currentStore.sendETH(address(this), address(this), fee);
             balanceAfterFee = _amount - fee;
         }
         
         stakeInsideStore[_store] += balanceAfterFee;
         availableEthInsideStore[_store] -= _amount;
-        currentStore.updateData(stakeInsideStore[_store], msg.sender, extensionInsideStore[_store]);
+        currentStore.updateData(msg.sender, extensionInsideStore[_store]);
         emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
     }
     
@@ -166,7 +157,7 @@ abstract contract Stake is StoreHub {
         Store currentStore = Store(_store);
         stakeInsideStore[_store] -= _amount;
         availableEthInsideStore[_store] += _amount;
-        currentStore.updateData(stakeInsideStore[_store], msg.sender, extensionInsideStore[_store]);
+        currentStore.updateData(msg.sender, extensionInsideStore[_store]);
         emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
     }
 }
@@ -183,7 +174,7 @@ abstract contract Stake is StoreHub {
         
         if(malusToken.balanceOf(_store) < 25000000000000000000) {
             uint256 fee = (_amount * 200) / 10000;
-            currentStore.sendETH(address(this), fee);
+            currentStore.sendETH(address(this), address(this), fee);
             balanceAfterFee = _amount - fee;
         }
         
@@ -235,7 +226,7 @@ abstract contract Stake is StoreHub {
         require(isStoreOwner[_store][msg.sender] == true);
         Store currentStore = Store(_store);
         extensionInsideStore[_store] = _newExtension;
-        currentStore.updateData(stakeInsideStore[_store], msg.sender, extensionInsideStore[_store]);
+        currentStore.updateData(msg.sender, extensionInsideStore[_store]);
         emit ExtensionUpdated(_store, _newExtension);
     }
     
@@ -244,7 +235,7 @@ abstract contract Stake is StoreHub {
         Store currentStore = Store(_store);
         isStoreOwner[_store][msg.sender] = false;
         isStoreOwner[_store][_newOwner] = true;
-        currentStore.updateData(stakeInsideStore[_store], _newOwner, extensionInsideStore[_store]);
+        currentStore.updateData(_newOwner, extensionInsideStore[_store]);
         emit OwnerUpdated(_store, _newOwner);
     }
 }
@@ -308,8 +299,32 @@ contract FruitToken is General {
         return allowed[_owner][_spender];
     }
     
-    function mint(uint256 _amount, uint256 _updatedStake, uint256 _updatedAvailableFunds) override external {
- 
+    function mint(address _customer, uint256 _paymentReceived) override external returns (bool success, uint256 balance) {
+        require(isValidStore[msg.sender] == true);
+        uint256 sevenPercentOfPayment = (_paymentReceived * 700) / 10000;
+        
+        if(stakeInsideStore[msg.sender] > 0) {
+            require(sevenPercentOfPayment <= stakeInsideStore[msg.sender]);
+            stakeInsideStore[msg.sender] -= sevenPercentOfPayment;
+            collateralInsideStore[msg.sender] += sevenPercentOfPayment;
+            balances[_customer] += sevenPercentOfPayment;
+            
+            if(extensionInsideStore[msg.sender] == address(0)) {
+                availableEthInsideStore[msg.sender] += (_paymentReceived - sevenPercentOfPayment);
+            }
+
+            emit CollateralGenerated(msg.sender, sevenPercentOfPayment, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableEthInsideStore[msg.sender]);
+            return(true, (_paymentReceived - sevenPercentOfPayment)); 
+        }
+        else {
+            
+            if(extensionInsideStore[msg.sender] == address(0)) {
+                availableEthInsideStore[msg.sender] += _paymentReceived;
+            }
+            
+            emit BalanceUpdated(msg.sender, _paymentReceived);
+            return(true, _paymentReceived);
+        }
     }
     
     function _burn(address _from, address _store, uint256 _amount) private { 
@@ -322,6 +337,12 @@ contract FruitToken is General {
         availableEthInsideStore[_store] += _amount;
         balances[_from] -= _amount;
         totalSupply -= _amount;
+        
+        if(extensionInsideStore[_store] != address(0)) {
+            address payable wallet = payable(_store);
+            Store currentStore = Store(wallet);
+            currentStore.sendETH(msg.sender, msg.sender, _amount);
+        }
         emit CollateralReleased(_store, _amount, collateralInsideStore[_store], availableEthInsideStore[_store]);
         emit Transfer(_from, address(0), _amount);
     }
