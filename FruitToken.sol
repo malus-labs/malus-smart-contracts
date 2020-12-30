@@ -35,9 +35,9 @@ contract Store {
     Proxy public storeHub;
     address public owner;
     
-    constructor(address _storeHubAddress) { 
-        owner = msg.sender;
-        storeHub = Proxy(_storeHubAddress);
+    constructor(address _owner) { 
+        owner = _owner;
+        storeHub = Proxy(msg.sender);
     }
     
     function sendERC20Token(address _tokenContract, address _to, uint256 _amount) external { 
@@ -113,7 +113,7 @@ abstract contract StoreHub is StoreHubInterface, Proxy {
     mapping(address => address) extensionInsideStore;
     
     function deployStore() override external {
-        Store newStore = new Store(address(this));
+        Store newStore = new Store(msg.sender);
         isValidStore[address(newStore)] = true;
         isStoreOwner[address(newStore)][msg.sender] = true;
         emit StoreCreated(address(newStore), msg.sender, block.timestamp);
