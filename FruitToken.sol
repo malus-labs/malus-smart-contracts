@@ -308,11 +308,13 @@ contract FruitToken is General {
             stakeInsideStore[msg.sender] -= sevenPercentOfPayment;
             collateralInsideStore[msg.sender] += sevenPercentOfPayment;
             balances[_customer] += sevenPercentOfPayment;
+            totalSupply += sevenPercentOfPayment;
             
             if(extensionInsideStore[msg.sender] == address(0)) {
                 availableEthInsideStore[msg.sender] += (_paymentReceived - sevenPercentOfPayment);
             }
-
+            
+            emit Transfer(address(0), _customer, sevenPercentOfPayment);
             emit CollateralGenerated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableEthInsideStore[msg.sender]);
             return(true, (_paymentReceived - sevenPercentOfPayment)); 
         }
