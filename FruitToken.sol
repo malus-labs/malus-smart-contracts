@@ -96,8 +96,8 @@ abstract contract StoreHub is StoreHubInterface, Proxy {
     event StakeUpdated(address indexed store, uint256 stake, uint256 availableFunds);
     event BalanceUpdated(address indexed store, uint256 amount);
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 availableFunds, uint256 rate);
-    event CollateralGenerated(address indexed store, uint256 amountGenerated, uint256 collateral, uint256 stake, uint256 availableFunds);
-    event CollateralReleased(address indexed store, uint256 amountReleased, uint256 collateral, uint256 availableFunds); 
+    event CollateralGenerated(address indexed store, uint256 collateral, uint256 stake, uint256 availableFunds);
+    event CollateralReleased(address indexed store, uint256 collateral, uint256 availableFunds); 
     event ExtensionUpdated(address indexed store, address extension);
     event MetaDataUpdated(address indexed store, string[6] metaData);
     
@@ -200,8 +200,8 @@ abstract contract Stake is StoreHub {
         collateralInsideStore[_fromStore] -= _amount;
         availableEthInsideStore[_fromStore] = collateralReliefInsideStore[_toStore][_rate];
         collateralReliefInsideStore[_toStore][_rate] = 0;
-        emit CollateralGenerated(_toStore, _amount, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
-        emit CollateralReleased(_fromStore, _amount, collateralInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
+        emit CollateralGenerated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
+        emit CollateralReleased(_fromStore, collateralInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
     }
     
     function transferCollateral(address _fromStore, address payable _toStore, uint256 _amount) override external {
@@ -209,8 +209,8 @@ abstract contract Stake is StoreHub {
         require(_amount <= collateralInsideStore[_fromStore]);
         collateralInsideStore[_toStore] += _amount;
         collateralInsideStore[_fromStore] -= _amount;
-        emit CollateralGenerated(_toStore, _amount, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
-        emit CollateralReleased(_fromStore, _amount, collateralInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
+        emit CollateralGenerated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
+        emit CollateralReleased(_fromStore, collateralInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
     }
 }
 
@@ -313,7 +313,7 @@ contract FruitToken is General {
                 availableEthInsideStore[msg.sender] += (_paymentReceived - sevenPercentOfPayment);
             }
 
-            emit CollateralGenerated(msg.sender, sevenPercentOfPayment, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableEthInsideStore[msg.sender]);
+            emit CollateralGenerated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableEthInsideStore[msg.sender]);
             return(true, (_paymentReceived - sevenPercentOfPayment)); 
         }
         else {
@@ -343,7 +343,7 @@ contract FruitToken is General {
             Store currentStore = Store(wallet);
             currentStore.sendETH(msg.sender, msg.sender, _amount);
         }
-        emit CollateralReleased(_store, _amount, collateralInsideStore[_store], availableEthInsideStore[_store]);
+        emit CollateralReleased(_store, collateralInsideStore[_store], availableEthInsideStore[_store]);
         emit Transfer(_from, address(0), _amount);
     }
 }
