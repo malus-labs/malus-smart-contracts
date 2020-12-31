@@ -46,11 +46,11 @@ contract Store {
         erc20Contract.transferFrom(address(this), _to, _amount);
     }
     
-    function sendETH(address _to, address _customer, uint256 _amount) external returns (bool success) {
+    function sendETH(address _to, uint256 _amount) external returns (bool success) {
         require(msg.sender == address(storeHub) || msg.sender == owner);
         
         if(_to != address(storeHub) && msg.sender == address(storeHub)) { 
-            storeExtension.processPayment{value: _amount}(_customer);
+            storeExtension.processPayment{value: _amount}(_to);
             return true;
         }
         else if(msg.sender == owner) {
@@ -123,6 +123,22 @@ abstract contract StoreHub is StoreHubInterface, Proxy {
         return isValidStore[_store];
     }
     
+    function getAvailableEth(address _store) public view returns (uint256) {
+        return availableEthInsideStore[_store];
+    }
+    
+    function getStake(address _store) public view returns (uint256) {
+        return stakeInsideStore[_store];
+    }
+    
+    function getCollateral(address _store) public view returns (uint256) {
+        return collateralInsideStore[_store];
+    }
+    
+    function getcollateralRelief(address _store, uint256 _rate) public view returns (uint256) {
+        return collateralReliefInsideStore[_store][_rate];
+    }
+    
     function withdraw(uint256 _amount) override external returns (bool) {
         require(isValidStore[msg.sender] == true);
         availableEthInsideStore[msg.sender] -= _amount;
@@ -141,7 +157,7 @@ abstract contract Stake is StoreHub {
         
         if(malusToken.balanceOf(_store) < 25000000000000000000) {
             uint256 fee = (_amount * 200) / 10000;
-            currentStore.sendETH(address(this), address(this), fee);
+            currentStore.sendETH(address(this), fee);
             balanceAfterFee = _amount - fee;
         }
         
@@ -174,7 +190,7 @@ abstract contract Stake is StoreHub {
         
         if(malusToken.balanceOf(_store) < 25000000000000000000) {
             uint256 fee = (_amount * 200) / 10000;
-            currentStore.sendETH(address(this), address(this), fee);
+            currentStore.sendETH(address(this), fee);
             balanceAfterFee = _amount - fee;
         }
         
@@ -343,7 +359,7 @@ contract FruitToken is General {
         if(extensionInsideStore[_store] != address(0)) {
             address payable wallet = payable(_store);
             Store currentStore = Store(wallet);
-            currentStore.sendETH(msg.sender, msg.sender, _amount);
+            currentStore.sendETH(msg.sender, _amount);
         }
         emit CollateralReleased(_store, collateralInsideStore[_store], availableEthInsideStore[_store]);
         emit Transfer(_from, address(0), _amount);
