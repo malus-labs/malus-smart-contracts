@@ -70,10 +70,6 @@ contract Store {
         storeExtension = StoreExtensionInterface(_storeExtension);
     }
     
-    fallback() external payable {
-        _createPoints();
-    }
-    
     receive() external payable {
         _createPoints();
     }
@@ -111,6 +107,10 @@ abstract contract StoreHub is StoreHubInterface, Proxy {
     mapping(address => uint256) collateralInsideStore; 
     mapping(address => mapping(uint256 => uint256)) collateralReliefInsideStore; 
     mapping(address => address) extensionInsideStore;
+    
+    receive() external payable {
+        require(isValidStore[msg.sender] == true);
+    }
     
     function deployStore() override external {
         Store newStore = new Store(msg.sender);
@@ -153,9 +153,9 @@ abstract contract Stake is StoreHub {
         require(isStoreOwner[_store][msg.sender] == true);
         require(_amount <= availableEthInsideStore[_store]);
         uint256 balanceAfterFee = _amount;
-        Store currentStore = Store(_store);
         
         if(malusToken.balanceOf(_store) < 25000000000000000000) {
+            Store currentStore = Store(_store);
             uint256 fee = (_amount * 200) / 10000;
             currentStore.sendETH(address(this), fee);
             balanceAfterFee = _amount - fee;
@@ -163,17 +163,14 @@ abstract contract Stake is StoreHub {
         
         stakeInsideStore[_store] += balanceAfterFee;
         availableEthInsideStore[_store] -= _amount;
-        currentStore.updateData(msg.sender, extensionInsideStore[_store]);
         emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
     }
     
     function removeStake(address payable _store, uint256 _amount) override external {
         require(isStoreOwner[_store][msg.sender] == true);
         require(_amount <= stakeInsideStore[_store]);
-        Store currentStore = Store(_store);
         stakeInsideStore[_store] -= _amount;
         availableEthInsideStore[_store] += _amount;
-        currentStore.updateData(msg.sender, extensionInsideStore[_store]);
         emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
     }
 }
@@ -242,7 +239,7 @@ abstract contract Stake is StoreHub {
         require(isStoreOwner[_store][msg.sender] == true);
         Store currentStore = Store(_store);
         extensionInsideStore[_store] = _newExtension;
-        currentStore.updateData(msg.sender, extensionInsideStore[_store]);
+        currentStore.updateData(msg.sender, _newExtension);
         emit ExtensionUpdated(_store, _newExtension);
     }
     
@@ -358,6 +355,7 @@ contract FruitToken is General {
         
         if(extensionInsideStore[_store] != address(0)) {
             address payable wallet = payable(_store);
+            availableEthInsideStore[_store] -= _amount;
             Store currentStore = Store(wallet);
             currentStore.sendETH(msg.sender, _amount);
         }
