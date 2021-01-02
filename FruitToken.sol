@@ -151,7 +151,6 @@ abstract contract Stake is StoreHub {
     
     function addStake(address payable _store, uint256 _amount) override external {  
         require(isStoreOwner[_store][msg.sender] == true);
-        require(_amount <= availableEthInsideStore[_store]);
         uint256 balanceAfterFee = _amount;
         
         if(malusToken.balanceOf(_store) < 25000000000000000000) {
@@ -168,7 +167,6 @@ abstract contract Stake is StoreHub {
     
     function removeStake(address payable _store, uint256 _amount) override external {
         require(isStoreOwner[_store][msg.sender] == true);
-        require(_amount <= stakeInsideStore[_store]);
         stakeInsideStore[_store] -= _amount;
         availableEthInsideStore[_store] += _amount;
         emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
