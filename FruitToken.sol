@@ -152,6 +152,7 @@ abstract contract Stake is StoreHub {
     function addStake(address payable _store, uint256 _amount) override external {  
         require(isStoreOwner[_store][msg.sender] == true);
         uint256 balanceAfterFee = _amount;
+        availableEthInsideStore[_store] -= _amount;
         
         if(malusToken.balanceOf(_store) < 25000000000000000000) {
             Store currentStore = Store(_store);
@@ -161,7 +162,6 @@ abstract contract Stake is StoreHub {
         }
         
         stakeInsideStore[_store] += balanceAfterFee;
-        availableEthInsideStore[_store] -= _amount;
         emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
     }
     
@@ -178,10 +178,11 @@ abstract contract Stake is StoreHub {
     
     function provideCollateralRelief(address payable _store, uint256 _amount, uint256 _rate) override external { 
         require(isStoreOwner[_store][msg.sender] == true);
-        require(_amount <= availableEthInsideStore[_store]);
+        require(collateralReliefInsideStore[_store][_rate] == 0);
         require(_rate > 0 && _rate <= 10000);
         uint256 balanceAfterFee = _amount;
         Store currentStore = Store(_store);
+        availableEthInsideStore[_store] -= _amount;
         
         if(malusToken.balanceOf(_store) < 25000000000000000000) {
             uint256 fee = (_amount * 200) / 10000;
@@ -189,16 +190,15 @@ abstract contract Stake is StoreHub {
             balanceAfterFee = _amount - fee;
         }
         
-        availableEthInsideStore[_store] -= _amount;
+        
         collateralReliefInsideStore[_store][_rate] += balanceAfterFee;
         emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate);
     }
     
     function removeCollateralRelief(address _store, uint256 _amount, uint256 _rate) override external {
         require(isStoreOwner[_store][msg.sender] == true);
-        require(_amount <= collateralReliefInsideStore[_store][_rate]);
-        availableEthInsideStore[_store] -= _amount;
-        collateralReliefInsideStore[_store][_rate] += _amount;
+        collateralReliefInsideStore[_store][_rate] -= _amount;
+        availableEthInsideStore[_store] += _amount;
         emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate);
     }
     
