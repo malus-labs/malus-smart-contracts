@@ -292,8 +292,6 @@ contract FruitToken is General {
     }
     
     function transferFrom(address _from, address _to, uint256 _amount) override public returns (bool success) {
-        require(balances[_from] >= _amount);
-  
         if(isValidStore[_to] == true) {
             if(collateralInsideStore[_to] >= _amount) { 
                 _burn(_from, _to, _amount); 
@@ -303,7 +301,6 @@ contract FruitToken is General {
         }
         
         if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
-            require(allowed[_from][msg.sender] >= _amount);
             allowed[_from][msg.sender] -= _amount;
         }
         
@@ -355,7 +352,6 @@ contract FruitToken is General {
     
     function _burn(address _from, address _store, uint256 _amount) private { 
         if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
-            require(allowed[_from][msg.sender] >= _amount);
             allowed[_from][msg.sender] -= _amount;
         }
         
