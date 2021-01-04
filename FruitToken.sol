@@ -151,8 +151,15 @@ abstract contract StoreHub is StoreHubInterface, Proxy {
     
     function withdraw(uint256 _amount) override external returns (bool) {
         require(isValidStore[msg.sender] == true);
+        require(availableEthInsideStore[msg.sender] >= _amount);
         availableEthInsideStore[msg.sender] -= _amount;
         return true;
+    }
+    
+    function collectFee(address _to, uint256 _amount) external {
+        require(msg.sender == address(feeCollector));
+        (bool success2,) = _to.call{value: _amount}(""); 
+        require(success2 == true);
     }
 }
 
@@ -161,6 +168,7 @@ abstract contract Stake is StoreHub {
     
     function addStake(address payable _store, uint256 _amount) override external {  
         require(isStoreOwner[_store][msg.sender] == true);
+        require(availableEthInsideStore[_store] >= _amount);
         uint256 balanceAfterFee = _amount;
         availableEthInsideStore[_store] -= _amount;
         
@@ -177,6 +185,7 @@ abstract contract Stake is StoreHub {
     
     function removeStake(address payable _store, uint256 _amount) override external {
         require(isStoreOwner[_store][msg.sender] == true);
+        require(stakeInsideStore[_store] >= _amount);
         stakeInsideStore[_store] -= _amount;
         availableEthInsideStore[_store] += _amount;
         emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
@@ -188,6 +197,7 @@ abstract contract Stake is StoreHub {
     
     function provideCollateralRelief(address payable _store, uint256 _amount, uint256 _rate) override external { 
         require(isStoreOwner[_store][msg.sender] == true);
+        require(availableEthInsideStore[_store] >= _amount);
         require(collateralReliefInsideStore[_store][_rate] == 0);
         require(_rate > 0 && _rate <= 10000);
         uint256 balanceAfterFee = _amount;
@@ -206,6 +216,7 @@ abstract contract Stake is StoreHub {
     
     function removeCollateralRelief(address _store, uint256 _amount, uint256 _rate) override external {
         require(isStoreOwner[_store][msg.sender] == true);
+        require(collateralReliefInsideStore[_store][_rate] >= _amount);
         collateralReliefInsideStore[_store][_rate] -= _amount;
         availableEthInsideStore[_store] += _amount;
         emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate);
@@ -215,6 +226,7 @@ abstract contract Stake is StoreHub {
         uint256 lost = (_amount * _rate) / 10000;
         require(isStoreOwner[_fromStore][msg.sender] == true);
         require(isValidStore[_toStore] == true);
+        require(collateralInsideStore[_fromStore] >= _amount);
         require((_amount - lost) == collateralReliefInsideStore[_toStore][_rate]);
         collateralInsideStore[_fromStore] -= _amount;
         collateralInsideStore[_toStore] += _amount;
@@ -229,6 +241,7 @@ abstract contract Stake is StoreHub {
     function transferCollateral(address payable _fromStore, address payable _toStore, uint256 _amount) override external {
         require(isStoreOwner[_fromStore][msg.sender] == true);
         require(isValidStore[_toStore] == true);
+        require(collateralInsideStore[_fromStore] >= _amount);
         collateralInsideStore[_fromStore] -= _amount;
         collateralInsideStore[_toStore] += _amount;
         Store currentStore = Store(_fromStore);
@@ -278,9 +291,9 @@ contract FruitToken is General {
     mapping (address => uint256) balances;
     mapping (address => mapping (address => uint256)) allowed;
     
-    constructor(address malusTokenAddress) {
+    constructor(address malusTokenAddress, address _sender) {
         malusToken = Proxy(malusTokenAddress);
-        feeCollector = msg.sender;
+        feeCollector = _sender;
     }
     
     function balanceOf(address _owner) override public view returns (uint balance) {
@@ -292,6 +305,8 @@ contract FruitToken is General {
     }
     
     function transferFrom(address _from, address _to, uint256 _amount) override public returns (bool success) {
+        require(balances[_from] >= _amount);
+        
         if(isValidStore[_to] == true) {
             if(collateralInsideStore[_to] >= _amount) { 
                 _burn(_from, _to, _amount); 
@@ -301,6 +316,7 @@ contract FruitToken is General {
         }
         
         if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
+            require(allowed[_from][msg.sender] >= _amount);
             allowed[_from][msg.sender] -= _amount;
         }
         
@@ -325,7 +341,7 @@ contract FruitToken is General {
         uint256 sevenPercentOfPayment = (_paymentReceived * 700) / 10000;
         
         if(stakeInsideStore[msg.sender] > 0) {
-            require(sevenPercentOfPayment <= stakeInsideStore[msg.sender]);
+            require(stakeInsideStore[msg.sender] >= sevenPercentOfPayment);
             stakeInsideStore[msg.sender] -= sevenPercentOfPayment;
             collateralInsideStore[msg.sender] += sevenPercentOfPayment;
             balances[_customer] += sevenPercentOfPayment;
@@ -352,6 +368,7 @@ contract FruitToken is General {
     
     function _burn(address _from, address _store, uint256 _amount) private { 
         if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
+            require(allowed[_from][msg.sender] >= _amount);
             allowed[_from][msg.sender] -= _amount;
         }
         
@@ -368,5 +385,14 @@ contract FruitToken is General {
         }
         emit CollateralReleased(_store, collateralInsideStore[_store], availableEthInsideStore[_store]);
         emit Transfer(_from, address(0), _amount);
+    }
+}
+
+contract Deployer {
+    address public fruitTokenAddress;
+    
+    constructor(address malusTokenAddress) {
+        FruitToken fruitToken = new FruitToken(malusTokenAddress, msg.sender);
+        fruitTokenAddress = address(fruitToken);
     }
 }
