@@ -28,7 +28,10 @@ contract MalusToken {
     }
     
     function transferFrom(address _from, address _to, uint256 _amount)public returns (bool success) {
+        require(balances[_from] >= _amount);
+        
         if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
+            require(allowed[_from][msg.sender] >= _amount);
             allowed[_from][msg.sender] -=_amount;
         }
         
