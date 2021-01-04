@@ -8,8 +8,8 @@ interface StoreHubInterface {
     function removeStake(address payable _store, uint256 _amount) external;
     function provideCollateralRelief(address payable _store, uint256 _amount, uint256 _rate) external;
     function removeCollateralRelief(address _store, uint256 _amount, uint256 _rate) external;
-    function sellCollateral(address _fromStore, address payable _toStore, uint256 _amount, uint16 _rate) external;
-    function transferCollateral(address _fromStore, address payable _toStore, uint256 _amount) external;
+    function sellCollateral(address payable _fromStore, address payable _toStore, uint256 _amount, uint16 _rate) external;
+    function transferCollateral(address payable _fromStore, address payable _toStore, uint256 _amount) external;
     function setMetaData(address _store, string[6] calldata _metaData) external;
     function updateExtension(address payable _store, address _newExtension) external;
     function updateStoreOwner(address payable _store, address _owner) external;
@@ -58,7 +58,7 @@ contract Store {
             (bool success1) = storeHub.withdraw(_amount);
             require(success1 == true);
         }
-        
+
         (bool success2,) = _to.call{value: _amount}(""); 
         require(success2 == true);
         return true;
@@ -68,6 +68,16 @@ contract Store {
         require(msg.sender == address(storeHub));
         owner = _owner;
         storeExtension = StoreExtensionInterface(_storeExtension);
+    }
+    
+    function sendCollateral(address payable _toStore, uint256 _amount) external {
+        require(msg.sender == address(storeHub));
+        Store currentStore = Store(_toStore);
+        currentStore.receiveCollateral{value: _amount}();
+    }
+    
+    function receiveCollateral() external payable {
+        
     }
     
     receive() external payable {
@@ -151,8 +161,8 @@ abstract contract Stake is StoreHub {
     
     function addStake(address payable _store, uint256 _amount) override external {  
         require(isStoreOwner[_store][msg.sender] == true);
-        require(_amount <= availableEthInsideStore[_store]);
         uint256 balanceAfterFee = _amount;
+        availableEthInsideStore[_store] -= _amount;
         
         if(malusToken.balanceOf(_store) < 25000000000000000000) {
             Store currentStore = Store(_store);
@@ -162,13 +172,11 @@ abstract contract Stake is StoreHub {
         }
         
         stakeInsideStore[_store] += balanceAfterFee;
-        availableEthInsideStore[_store] -= _amount;
         emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
     }
     
     function removeStake(address payable _store, uint256 _amount) override external {
         require(isStoreOwner[_store][msg.sender] == true);
-        require(_amount <= stakeInsideStore[_store]);
         stakeInsideStore[_store] -= _amount;
         availableEthInsideStore[_store] += _amount;
         emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
@@ -180,55 +188,58 @@ abstract contract Stake is StoreHub {
     
     function provideCollateralRelief(address payable _store, uint256 _amount, uint256 _rate) override external { 
         require(isStoreOwner[_store][msg.sender] == true);
-        require(_amount <= availableEthInsideStore[_store]);
+        require(collateralReliefInsideStore[_store][_rate] == 0);
         require(_rate > 0 && _rate <= 10000);
         uint256 balanceAfterFee = _amount;
-        Store currentStore = Store(_store);
+        availableEthInsideStore[_store] -= _amount;
         
         if(malusToken.balanceOf(_store) < 25000000000000000000) {
             uint256 fee = (_amount * 200) / 10000;
+            Store currentStore = Store(_store);
             currentStore.sendETH(address(this), fee);
             balanceAfterFee = _amount - fee;
         }
         
-        availableEthInsideStore[_store] -= _amount;
         collateralReliefInsideStore[_store][_rate] += balanceAfterFee;
         emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate);
     }
     
     function removeCollateralRelief(address _store, uint256 _amount, uint256 _rate) override external {
         require(isStoreOwner[_store][msg.sender] == true);
-        require(_amount <= collateralReliefInsideStore[_store][_rate]);
-        availableEthInsideStore[_store] -= _amount;
-        collateralReliefInsideStore[_store][_rate] += _amount;
+        collateralReliefInsideStore[_store][_rate] -= _amount;
+        availableEthInsideStore[_store] += _amount;
         emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate);
     }
     
-    function sellCollateral(address _fromStore, address payable _toStore, uint256 _amount, uint16 _rate) override external {
+    function sellCollateral(address payable _fromStore, address payable _toStore, uint256 _amount, uint16 _rate) override external {
         uint256 lost = (_amount * _rate) / 10000;
         require(isStoreOwner[_fromStore][msg.sender] == true);
-        require(_amount <= collateralInsideStore[_fromStore]);
+        require(isValidStore[_toStore] == true);
         require((_amount - lost) == collateralReliefInsideStore[_toStore][_rate]);
-        collateralInsideStore[_toStore] = (collateralReliefInsideStore[_toStore][_rate] + lost);
         collateralInsideStore[_fromStore] -= _amount;
-        availableEthInsideStore[_fromStore] = collateralReliefInsideStore[_toStore][_rate];
+        collateralInsideStore[_toStore] += _amount;
+        availableEthInsideStore[_fromStore] = (_amount - lost);
         collateralReliefInsideStore[_toStore][_rate] = 0;
+        Store currentStore = Store(_fromStore);
+        currentStore.sendCollateral(_toStore, lost);
         emit CollateralGenerated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
         emit CollateralReleased(_fromStore, collateralInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
     }
     
-    function transferCollateral(address _fromStore, address payable _toStore, uint256 _amount) override external {
+    function transferCollateral(address payable _fromStore, address payable _toStore, uint256 _amount) override external {
         require(isStoreOwner[_fromStore][msg.sender] == true);
-        require(_amount <= collateralInsideStore[_fromStore]);
-        collateralInsideStore[_toStore] += _amount;
+        require(isValidStore[_toStore] == true);
         collateralInsideStore[_fromStore] -= _amount;
+        collateralInsideStore[_toStore] += _amount;
+        Store currentStore = Store(_fromStore);
+        currentStore.sendCollateral(_toStore, _amount);
         emit CollateralGenerated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
         emit CollateralReleased(_fromStore, collateralInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
     }
 }
 
 
- abstract contract General is Collateral {
+abstract contract General is Collateral {
     
     function setMetaData(address _store, string[6] calldata _metaData) override external {
         require(isStoreOwner[_store][msg.sender] == true);
