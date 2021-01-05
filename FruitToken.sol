@@ -341,6 +341,7 @@ contract FruitToken is General {
         uint256 sevenPercentOfPayment = (_paymentReceived * 700) / 10000;
         
         if(stakeInsideStore[msg.sender] > 0) {
+            require(isValidStore[_customer] == false);
             require(stakeInsideStore[msg.sender] >= sevenPercentOfPayment);
             stakeInsideStore[msg.sender] -= sevenPercentOfPayment;
             collateralInsideStore[msg.sender] += sevenPercentOfPayment;
