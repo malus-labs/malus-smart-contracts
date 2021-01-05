@@ -368,6 +368,8 @@ contract FruitToken is General {
     }
     
     function _burn(address _from, address _store, uint256 _amount) private { 
+        require(collateralInsideStore[_store] >= _amount);
+        
         if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
             require(allowed[_from][msg.sender] >= _amount);
             allowed[_from][msg.sender] -= _amount;
