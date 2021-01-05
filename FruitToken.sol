@@ -341,6 +341,7 @@ contract FruitToken is General {
         uint256 sevenPercentOfPayment = (_paymentReceived * 700) / 10000;
         
         if(stakeInsideStore[msg.sender] > 0) {
+            require(isValidStore[_customer] == false);
             require(stakeInsideStore[msg.sender] >= sevenPercentOfPayment);
             stakeInsideStore[msg.sender] -= sevenPercentOfPayment;
             collateralInsideStore[msg.sender] += sevenPercentOfPayment;
@@ -367,6 +368,8 @@ contract FruitToken is General {
     }
     
     function _burn(address _from, address _store, uint256 _amount) private { 
+        require(collateralInsideStore[_store] >= _amount);
+        
         if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
             require(allowed[_from][msg.sender] >= _amount);
             allowed[_from][msg.sender] -= _amount;
