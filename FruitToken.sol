@@ -101,7 +101,7 @@ abstract contract StoreHub is StoreHubInterface, Proxy {
     event OwnerUpdated(address indexed store, address newOwner);
     event StakeUpdated(address indexed store, uint256 stake, uint256 availableFunds);
     event BalanceUpdated(address indexed store, uint256 amount);
-    event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 availableFunds, uint256 rate);
+    event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 availableFunds, uint256 rate, bool isReliefAdded);
     event CollateralGenerated(address indexed store, uint256 collateral, uint256 stake, uint256 availableFunds);
     event CollateralReleased(address indexed store, uint256 collateral, uint256 availableFunds); 
     event ExtensionUpdated(address indexed store, address extension);
@@ -211,7 +211,7 @@ abstract contract Stake is StoreHub {
         }
         
         collateralReliefInsideStore[_store][_rate] += balanceAfterFee;
-        emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate);
+        emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate, true);
     }
     
     function removeCollateralRelief(address _store, uint256 _amount, uint256 _rate) override external {
@@ -219,7 +219,7 @@ abstract contract Stake is StoreHub {
         require(collateralReliefInsideStore[_store][_rate] >= _amount);
         collateralReliefInsideStore[_store][_rate] -= _amount;
         availableEthInsideStore[_store] += _amount;
-        emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate);
+        emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate, false);
     }
     
     function sellCollateral(address payable _fromStore, address payable _toStore, uint256 _amount, uint16 _rate) override external {
