@@ -99,11 +99,8 @@ abstract contract StoreHub is StoreHubInterface, Proxy {
     
     event StoreCreated(address indexed store, address owner, uint256 creationDate); 
     event OwnerUpdated(address indexed store, address newOwner);
-    event StakeUpdated(address indexed store, uint256 stake, uint256 availableFunds);
-    event BalanceUpdated(address indexed store, uint256 amount);
-    event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 availableFunds, uint256 rate, bool isReliefAdded);
-    event CollateralGenerated(address indexed store, uint256 collateral, uint256 stake, uint256 availableFunds);
-    event CollateralReleased(address indexed store, uint256 collateral, uint256 availableFunds); 
+    event StoreBalancesUpdated(address indexed store, uint256 collateral, uint256 stake, uint256 availableFunds);
+    event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 availableFunds, uint256 rate, bool didAdd);
     event ExtensionUpdated(address indexed store, address extension);
     event MetaDataUpdated(address indexed store, string[6] metaData);
     
@@ -180,7 +177,7 @@ abstract contract Stake is StoreHub {
         }
         
         stakeInsideStore[_store] += balanceAfterFee;
-        emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
+        emit StoreBalancesUpdated(_store, collateralInsideStore[_store], stakeInsideStore[_store], availableEthInsideStore[_store]);
     }
     
     function removeStake(address payable _store, uint256 _amount) override external {
@@ -188,7 +185,7 @@ abstract contract Stake is StoreHub {
         require(stakeInsideStore[_store] >= _amount);
         stakeInsideStore[_store] -= _amount;
         availableEthInsideStore[_store] += _amount;
-        emit StakeUpdated(_store, stakeInsideStore[_store], availableEthInsideStore[_store]);
+        emit StoreBalancesUpdated(_store, collateralInsideStore[_store], stakeInsideStore[_store], availableEthInsideStore[_store]);
     }
 }
 
@@ -234,8 +231,8 @@ abstract contract Stake is StoreHub {
         collateralReliefInsideStore[_toStore][_rate] = 0;
         Store currentStore = Store(_fromStore);
         currentStore.sendCollateral(_toStore, lost);
-        emit CollateralGenerated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
-        emit CollateralReleased(_fromStore, collateralInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
+        emit StoreBalancesUpdated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
+        emit StoreBalancesUpdated(_fromStore, collateralInsideStore[_fromStore], stakeInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
     }
     
     function transferCollateral(address payable _fromStore, address payable _toStore, uint256 _amount) override external {
@@ -246,8 +243,8 @@ abstract contract Stake is StoreHub {
         collateralInsideStore[_toStore] += _amount;
         Store currentStore = Store(_fromStore);
         currentStore.sendCollateral(_toStore, _amount);
-        emit CollateralGenerated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
-        emit CollateralReleased(_fromStore, collateralInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
+        emit StoreBalancesUpdated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
+        emit StoreBalancesUpdated(_fromStore, collateralInsideStore[_fromStore], stakeInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
     }
 }
 
@@ -353,7 +350,7 @@ contract FruitToken is General {
             }
             
             emit Transfer(address(0), _customer, sevenPercentOfPayment);
-            emit CollateralGenerated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableEthInsideStore[msg.sender]);
+            emit StoreBalancesUpdated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableEthInsideStore[msg.sender]);
             return(true, (_paymentReceived - sevenPercentOfPayment)); 
         }
         else {
@@ -362,7 +359,7 @@ contract FruitToken is General {
                 availableEthInsideStore[msg.sender] += _paymentReceived;
             }
             
-            emit BalanceUpdated(msg.sender, _paymentReceived);
+            emit StoreBalancesUpdated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableEthInsideStore[msg.sender]);
             return(true, _paymentReceived);
         }
     }
@@ -386,8 +383,8 @@ contract FruitToken is General {
             Store currentStore = Store(wallet);
             currentStore.sendETH(msg.sender, _amount);
         }
-        emit CollateralReleased(_store, collateralInsideStore[_store], availableEthInsideStore[_store]);
         emit Transfer(_from, address(0), _amount);
+        emit StoreBalancesUpdated(_store, collateralInsideStore[_store], stakeInsideStore[_store], availableEthInsideStore[_store]);
     }
 }
 
