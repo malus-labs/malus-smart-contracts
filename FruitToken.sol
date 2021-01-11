@@ -10,7 +10,7 @@ interface StoreHubInterface {
     function removeCollateralRelief(address _store, uint256 _amount, uint256 _rate) external;
     function sellCollateral(address payable _fromStore, address payable _toStore, uint256 _amount, uint16 _rate) external;
     function transferCollateral(address payable _fromStore, address payable _toStore, uint256 _amount) external;
-    function setMetaData(address _store, string[6] calldata _metaData) external;
+    function setMetaData(address _store, string[7] calldata _metaData) external;
     function updateExtension(address payable _store, address _newExtension) external;
     function updateStoreOwner(address payable _store, address _owner) external;
 }
@@ -102,7 +102,7 @@ abstract contract StoreHub is StoreHubInterface, Proxy {
     event StoreBalancesUpdated(address indexed store, uint256 collateral, uint256 stake, uint256 availableFunds);
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 availableFunds, uint256 rate, bool didAdd);
     event ExtensionUpdated(address indexed store, address extension);
-    event MetaDataUpdated(address indexed store, string[6] metaData);
+    event MetaDataUpdated(address indexed store, string[7] metaData);
     
     Proxy public malusToken;
     address public feeCollector;
@@ -150,6 +150,7 @@ abstract contract StoreHub is StoreHubInterface, Proxy {
         require(isValidStore[msg.sender] == true);
         require(availableEthInsideStore[msg.sender] >= _amount);
         availableEthInsideStore[msg.sender] -= _amount;
+        emit StoreBalancesUpdated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableEthInsideStore[msg.sender]);
         return true;
     }
     
@@ -251,7 +252,7 @@ abstract contract Stake is StoreHub {
 
 abstract contract General is Collateral {
     
-    function setMetaData(address _store, string[6] calldata _metaData) override external {
+    function setMetaData(address _store, string[7] calldata _metaData) override external {
         require(isStoreOwner[_store][msg.sender] == true);
         emit MetaDataUpdated(_store, _metaData);
     }
