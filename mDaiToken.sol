@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 
 interface StoreExtensionInterface {
-    function processPayment(address _customer) external payable;
+    function processPayment(address _customer, uint256 _amount) external;
 }
 
 
@@ -19,34 +19,34 @@ contract Store {
     
     StoreExtensionInterface public storeExtension;
     Proxy public storeHub;
+    Proxy public daiContract;
     address public owner;
     
     constructor(address _owner) { 
         owner = _owner;
         storeHub = Proxy(msg.sender);
+        daiContract = Proxy(0xaD6D458402F60fD3Bd25163575031ACDce07538D);
     }
     
-    function sendERC20Token(address _tokenContract, address _to, uint256 _amount) external { 
-        require(msg.sender == owner);
+    function sendERC20Token(address _tokenContract, address _to, uint256 _amount) external {
+        require(msg.sender == owner && _tokenContract != address(daiContract));
         Proxy erc20Contract = Proxy(_tokenContract);
         erc20Contract.transferFrom(address(this), _to, _amount);
     }
     
-    function sendETH(address _to, uint256 _amount) external returns (bool success) {
+    function sendDAI(address _to, uint256 _amount, bool isExtension) external returns (bool success) {
         require(msg.sender == address(storeHub) || msg.sender == owner);
+        (bool success2) = daiContract.transferFrom(address(this), _to, _amount);
+        require(success2 == true);
         
-        if(_to != address(storeHub) && msg.sender == address(storeHub)) { 
-            storeExtension.processPayment{value: _amount}(_to);
+        if(isExtension == true && msg.sender == address(storeHub)) { 
+            storeExtension.processPayment(_to, _amount);
             return true;
         }
         else if(msg.sender == owner) {
-            require(_to != address(storeHub));
             (bool success1) = storeHub.withdraw(_amount);
             require(success1 == true);
         }
-
-        (bool success2,) = _to.call{value: _amount}(""); 
-        require(success2 == true);
         return true;
     }
     
@@ -55,27 +55,20 @@ contract Store {
         owner = _owner;
         storeExtension = StoreExtensionInterface(_storeExtension);
     }
-    
-    function sendStorePayment(address payable _toStore, uint256 _amount) external {
-        require(msg.sender == address(storeHub));
-        Store currentStore = Store(_toStore);
-        currentStore.receiveStorePayment{value: _amount}();
+
+    function completePurchase(uint256 _amount) external {
+        daiContract.transferFrom(msg.sender, address(this), _amount);
+        _createPoints(_amount);
     }
     
-    function receiveStorePayment() external payable {
-        
-    }
-    
-    receive() external payable {
-        _createPoints();
-    }
-    
-    function _createPoints() private {
-        (bool success, uint256 balance) = storeHub.mint(msg.sender, msg.value);
+    function _createPoints(uint256 _amount) private {
+        (bool success, uint256 balance) = storeHub.mint(msg.sender, _amount);
         require(success == true);
         
         if(address(storeExtension) != address(0)) {
-            storeExtension.processPayment{value: balance}(msg.sender);
+            (bool success2) = daiContract.transferFrom(address(this), address(storeExtension), balance);
+            require(success2 == true);
+            storeExtension.processPayment(msg.sender, balance);
         }
     }
 }
@@ -92,23 +85,26 @@ abstract contract StoreHub is Proxy {
     
     Proxy public malusToken;
     address public feeCollector;
+    address public firstStore;
     
     mapping(address => bool) isValidStore;
     mapping(address => mapping(address => bool)) isStoreOwner;
-    mapping(address => uint256) availableEthInsideStore; 
+    mapping(address => uint256) availableDaiInsideStore; 
     mapping(address => uint256) stakeInsideStore;
     mapping(address => uint256) collateralInsideStore; 
     mapping(address => mapping(uint256 => uint256)) collateralReliefInsideStore; 
     mapping(address => address) extensionInsideStore;
     
-    receive() external payable {
-        require(isValidStore[msg.sender] == true);
-    }
     
     function deployStore() external {
+        require(firstStore != address(0) || msg.sender == feeCollector);
         Store newStore = new Store(msg.sender);
         isValidStore[address(newStore)] = true;
         isStoreOwner[address(newStore)][msg.sender] = true;
+        
+        if(firstStore == address(0)) {
+            firstStore = address(newStore);
+        }
         emit StoreCreated(address(newStore), msg.sender, block.timestamp);
     }
     
@@ -122,79 +118,74 @@ abstract contract StoreHub is Proxy {
     
     function withdraw(uint256 _amount) override external returns (bool) {
         require(isValidStore[msg.sender] == true);
-        require(availableEthInsideStore[msg.sender] >= _amount);
-        availableEthInsideStore[msg.sender] -= _amount;
-        emit StoreBalancesUpdated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableEthInsideStore[msg.sender]);
+        require(availableDaiInsideStore[msg.sender] >= _amount);
+        availableDaiInsideStore[msg.sender] -= _amount;
+        emit StoreBalancesUpdated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableDaiInsideStore[msg.sender]);
         return true;
-    }
-    
-    function collectFee(address _to, uint256 _amount) external {
-        require(msg.sender == address(feeCollector));
-        (bool success2,) = _to.call{value: _amount}(""); 
-        require(success2 == true);
     }
 }
 
 
 abstract contract Stake is StoreHub {
     
-    function addStake(address payable _store, uint256 _amount) external {  
+    function addStake(address _store, uint256 _amount) external {  
         require(isStoreOwner[_store][msg.sender] == true);
-        require(availableEthInsideStore[_store] >= _amount);
+        require(availableDaiInsideStore[_store] >= _amount);
         uint256 balanceAfterFee = _amount;
-        availableEthInsideStore[_store] -= _amount;
+        availableDaiInsideStore[_store] -= _amount;
         
-        if(malusToken.balanceOf(_store) < 25000000000000000000) {
+        if(malusToken.balanceOf(_store) < 15000000000000000000) {
             Store currentStore = Store(_store);
-            uint256 fee = (_amount * 200) / 10000;
-            currentStore.sendETH(address(this), fee);
+            uint256 fee = (_amount * 50) / 10000;
+            availableDaiInsideStore[firstStore] += fee;
+            currentStore.sendDAI(firstStore, fee, false);  
             balanceAfterFee = _amount - fee;
         }
         
         stakeInsideStore[_store] += balanceAfterFee;
-        emit StoreBalancesUpdated(_store, collateralInsideStore[_store], stakeInsideStore[_store], availableEthInsideStore[_store]);
+        emit StoreBalancesUpdated(_store, collateralInsideStore[_store], stakeInsideStore[_store], availableDaiInsideStore[_store]);
     }
     
-    function removeStake(address payable _store, uint256 _amount) external {
+    function removeStake(address _store, uint256 _amount) external {
         require(isStoreOwner[_store][msg.sender] == true);
         require(stakeInsideStore[_store] >= _amount);
         stakeInsideStore[_store] -= _amount;
-        availableEthInsideStore[_store] += _amount;
-        emit StoreBalancesUpdated(_store, collateralInsideStore[_store], stakeInsideStore[_store], availableEthInsideStore[_store]);
+        availableDaiInsideStore[_store] += _amount;
+        emit StoreBalancesUpdated(_store, collateralInsideStore[_store], stakeInsideStore[_store], availableDaiInsideStore[_store]);
     }
 }
 
 
  abstract contract Collateral is Stake {
     
-    function provideCollateralRelief(address payable _store, uint256 _amount, uint256 _rate) external { 
+    function provideCollateralRelief(address _store, uint256 _amount, uint256 _rate) external { 
         require(isStoreOwner[_store][msg.sender] == true);
-        require(availableEthInsideStore[_store] >= _amount);
-        require(collateralReliefInsideStore[_store][_rate] == 0);
+        require(availableDaiInsideStore[_store] >= _amount);
         require(_rate > 0 && _rate <= 10000);
         uint256 balanceAfterFee = _amount;
-        availableEthInsideStore[_store] -= _amount;
+        availableDaiInsideStore[_store] -= _amount;
         
-        if(malusToken.balanceOf(_store) < 25000000000000000000) {
-            uint256 fee = (_amount * 200) / 10000;
+        if(malusToken.balanceOf(_store) < 15000000000000000000) {
+            uint256 fee = (_amount * 50) / 10000;
             Store currentStore = Store(_store);
-            currentStore.sendETH(address(this), fee);
+            availableDaiInsideStore[firstStore] += fee;
+            currentStore.sendDAI(firstStore, fee, false); 
             balanceAfterFee = _amount - fee;
         }
         
         collateralReliefInsideStore[_store][_rate] += balanceAfterFee;
-        emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate, true);
+        emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableDaiInsideStore[_store], _rate, true);
     }
     
     function removeCollateralRelief(address _store, uint256 _amount, uint256 _rate) external {
         require(isStoreOwner[_store][msg.sender] == true);
         require(collateralReliefInsideStore[_store][_rate] >= _amount);
         collateralReliefInsideStore[_store][_rate] -= _amount;
-        availableEthInsideStore[_store] += _amount;
-        emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableEthInsideStore[_store], _rate, false);
+        availableDaiInsideStore[_store] += _amount;
+        emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableDaiInsideStore[_store], _rate, false);
     }
     
-    function sellCollateral(address payable _fromStore, address payable _toStore, uint256 _amount, uint16 _rate) external {
+    function sellCollateral(address _fromStore, address _toStore, uint256 _amount, uint16 _rate) external {
         uint256 lost = (_amount * _rate) / 10000;
         require(isStoreOwner[_fromStore][msg.sender] == true);
         require(isValidStore[_toStore] == true);
@@ -202,25 +193,25 @@ abstract contract Stake is StoreHub {
         require(collateralReliefInsideStore[_toStore][_rate] == _amount);
         collateralInsideStore[_fromStore] -= _amount;
         collateralInsideStore[_toStore] += _amount;
-        availableEthInsideStore[_fromStore] += (_amount - lost);
-        availableEthInsideStore[_toStore] += lost;
+        availableDaiInsideStore[_fromStore] += (_amount - lost);
+        availableDaiInsideStore[_toStore] += lost;
         collateralReliefInsideStore[_toStore][_rate] = 0;
         Store currentStore = Store(_fromStore);
-        currentStore.sendStorePayment(_toStore, lost);
-        emit StoreBalancesUpdated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
-        emit StoreBalancesUpdated(_fromStore, collateralInsideStore[_fromStore], stakeInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
+        currentStore.sendDAI(_toStore, lost, false);
+        emit StoreBalancesUpdated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableDaiInsideStore[_toStore]);
+        emit StoreBalancesUpdated(_fromStore, collateralInsideStore[_fromStore], stakeInsideStore[_fromStore], availableDaiInsideStore[_fromStore]);
     }
     
-    function transferCollateral(address payable _fromStore, address payable _toStore, uint256 _amount) external {
+    function transferCollateral(address _fromStore, address _toStore, uint256 _amount) external {
         require(isStoreOwner[_fromStore][msg.sender] == true);
         require(isValidStore[_toStore] == true);
         require(collateralInsideStore[_fromStore] >= _amount);
         collateralInsideStore[_fromStore] -= _amount;
         collateralInsideStore[_toStore] += _amount;
         Store currentStore = Store(_fromStore);
-        currentStore.sendStorePayment(_toStore, _amount);
-        emit StoreBalancesUpdated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableEthInsideStore[_toStore]);
-        emit StoreBalancesUpdated(_fromStore, collateralInsideStore[_fromStore], stakeInsideStore[_fromStore], availableEthInsideStore[_fromStore]);
+        currentStore.sendDAI(_toStore, _amount, false);
+        emit StoreBalancesUpdated(_toStore, collateralInsideStore[_toStore], stakeInsideStore[_toStore], availableDaiInsideStore[_toStore]);
+        emit StoreBalancesUpdated(_fromStore, collateralInsideStore[_fromStore], stakeInsideStore[_fromStore], availableDaiInsideStore[_fromStore]);
     }
 }
 
@@ -232,7 +223,7 @@ abstract contract General is Collateral {
         emit MetaDataUpdated(_store, _metaData);
     }
     
-    function updateExtension(address payable _store, address _newExtension) external {
+    function updateExtension(address _store, address _newExtension) external {
         require(isStoreOwner[_store][msg.sender] == true);
         Store currentStore = Store(_store);
         extensionInsideStore[_store] = _newExtension;
@@ -240,7 +231,7 @@ abstract contract General is Collateral {
         emit ExtensionUpdated(_store, _newExtension);
     }
     
-    function updateStoreOwner(address payable _store, address _newOwner) external {
+    function updateStoreOwner(address _store, address _newOwner) external {
         require(isStoreOwner[_store][msg.sender] == true);
         Store currentStore = Store(_store);
         isStoreOwner[_store][msg.sender] = false;
@@ -251,10 +242,10 @@ abstract contract General is Collateral {
 }
 
 
-contract FruitToken is General {
+contract mDaiToken is General {
     
-    string public name = "Fruit Token";
-    string public symbol = "FRUT";
+    string public name = "mDAI Token";
+    string public symbol = "mDAI";
     uint public decimals = 18; 
     uint256 public totalSupply;
     
@@ -322,26 +313,25 @@ contract FruitToken is General {
             totalSupply += sevenPercentOfPayment;
             
             if(extensionInsideStore[msg.sender] == address(0)) {
-                availableEthInsideStore[msg.sender] += (_paymentReceived - sevenPercentOfPayment);
+                availableDaiInsideStore[msg.sender] += (_paymentReceived - sevenPercentOfPayment);
             }
             
             emit Transfer(address(0), _customer, sevenPercentOfPayment);
-            emit StoreBalancesUpdated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableEthInsideStore[msg.sender]);
+            emit StoreBalancesUpdated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableDaiInsideStore[msg.sender]);
             return(true, (_paymentReceived - sevenPercentOfPayment)); 
         }
         else {
             
             if(extensionInsideStore[msg.sender] == address(0)) {
-                availableEthInsideStore[msg.sender] += _paymentReceived;
+                availableDaiInsideStore[msg.sender] += _paymentReceived;
             }
             
-            emit StoreBalancesUpdated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableEthInsideStore[msg.sender]);
+            emit StoreBalancesUpdated(msg.sender, collateralInsideStore[msg.sender], stakeInsideStore[msg.sender], availableDaiInsideStore[msg.sender]);
             return(true, _paymentReceived);
         }
     }
     
     function _burn(address _from, address _store, uint256 _amount) private { 
-        require(collateralInsideStore[_store] >= _amount);
         
         if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
             require(allowed[_from][msg.sender] >= _amount);
@@ -349,26 +339,25 @@ contract FruitToken is General {
         }
         
         collateralInsideStore[_store] -= _amount;
-        availableEthInsideStore[_store] += _amount;
+        availableDaiInsideStore[_store] += _amount;
         balances[_from] -= _amount;
         totalSupply -= _amount;
         
         if(extensionInsideStore[_store] != address(0)) {
-            address payable wallet = payable(_store);
-            availableEthInsideStore[_store] -= _amount;
-            Store currentStore = Store(wallet);
-            currentStore.sendETH(msg.sender, _amount);
+            availableDaiInsideStore[_store] -= _amount;
+            Store currentStore = Store(_store);
+            currentStore.sendDAI(msg.sender, _amount, true);
         }
         emit Transfer(_from, address(0), _amount);
-        emit StoreBalancesUpdated(_store, collateralInsideStore[_store], stakeInsideStore[_store], availableEthInsideStore[_store]);
+        emit StoreBalancesUpdated(_store, collateralInsideStore[_store], stakeInsideStore[_store], availableDaiInsideStore[_store]);
     }
 }
 
 contract Deployer {
-    address public fruitTokenAddress;
+    address public mDaiTokenAddress;
     
     constructor(address malusTokenAddress) {
-        FruitToken fruitToken = new FruitToken(malusTokenAddress, msg.sender);
-        fruitTokenAddress = address(fruitToken);
+        mDaiToken mDai = new mDaiToken(malusTokenAddress, msg.sender);
+        mDaiTokenAddress = address(mDai);
     }
 }
