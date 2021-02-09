@@ -36,17 +36,19 @@ contract Store {
     
     function sendDAI(address _to, uint256 _amount, bool isExtension) external returns (bool success) {
         require(msg.sender == address(storeHub) || msg.sender == owner);
-        (bool success2) = daiContract.transferFrom(address(this), _to, _amount);
-        require(success2 == true);
         
         if(isExtension == true && msg.sender == address(storeHub)) { 
-            storeExtension.processPayment(_to, _amount);
+            (bool success2) = daiContract.transferFrom(address(this), address(storeExtension), _amount);
+            require(success2 == true);
+            storeExtension.processPayment(_to, _amount); 
             return true;
         }
         else if(msg.sender == owner) {
             (bool success1) = storeHub.withdraw(_amount);
             require(success1 == true);
         }
+        (bool success2) = daiContract.transferFrom(address(this), _to, _amount);
+        require(success2 == true);
         return true;
     }
     
