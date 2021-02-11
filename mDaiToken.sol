@@ -38,8 +38,8 @@ contract Store {
         require(msg.sender == address(storeHub) || msg.sender == owner);
         
         if(isExtension == true && msg.sender == address(storeHub)) { 
-            (bool success2) = daiContract.transferFrom(address(this), address(storeExtension), _amount);
-            require(success2 == true);
+            (bool success1) = daiContract.transferFrom(address(this), address(storeExtension), _amount);
+            require(success1 == true);
             storeExtension.processPayment(_to, _amount); 
             return true;
         }
@@ -64,8 +64,8 @@ contract Store {
     }
     
     function _createPoints(uint256 _amount) private {
-        (bool success, uint256 balance) = storeHub.mint(msg.sender, _amount);
-        require(success == true);
+        (bool success1, uint256 balance) = storeHub.mint(msg.sender, _amount);
+        require(success1 == true);
         
         if(address(storeExtension) != address(0)) {
             (bool success2) = daiContract.transferFrom(address(this), address(storeExtension), balance);
@@ -85,10 +85,6 @@ abstract contract StoreHub is Proxy {
     event ExtensionUpdated(address indexed store, address extension);
     event MetaDataUpdated(address indexed store, string[7] metaData);
     
-    Proxy public malusToken;
-    address public feeCollector;
-    address public firstStore;
-    
     mapping(address => bool) isValidStore;
     mapping(address => mapping(address => bool)) isStoreOwner;
     mapping(address => uint256) availableDaiInsideStore; 
@@ -97,16 +93,10 @@ abstract contract StoreHub is Proxy {
     mapping(address => mapping(uint256 => uint256)) collateralReliefInsideStore; 
     mapping(address => address) extensionInsideStore;
     
-    
     function deployStore() external {
-        require(firstStore != address(0) || msg.sender == feeCollector);
         Store newStore = new Store(msg.sender);
         isValidStore[address(newStore)] = true;
         isStoreOwner[address(newStore)][msg.sender] = true;
-        
-        if(firstStore == address(0)) {
-            firstStore = address(newStore);
-        }
         emit StoreCreated(address(newStore), msg.sender, block.timestamp);
     }
     
@@ -133,18 +123,8 @@ abstract contract Stake is StoreHub {
     function addStake(address _store, uint256 _amount) external {  
         require(isStoreOwner[_store][msg.sender] == true);
         require(availableDaiInsideStore[_store] >= _amount);
-        uint256 balanceAfterFee = _amount;
         availableDaiInsideStore[_store] -= _amount;
-        
-        if(malusToken.balanceOf(_store) < 15000000000000000000) {
-            Store currentStore = Store(_store);
-            uint256 fee = (_amount * 50) / 10000;
-            availableDaiInsideStore[firstStore] += fee;
-            currentStore.sendDAI(firstStore, fee, false);  
-            balanceAfterFee = _amount - fee;
-        }
-        
-        stakeInsideStore[_store] += balanceAfterFee;
+        stakeInsideStore[_store] += _amount;
         emit StoreBalancesUpdated(_store, collateralInsideStore[_store], stakeInsideStore[_store], availableDaiInsideStore[_store]);
     }
     
@@ -164,18 +144,8 @@ abstract contract Stake is StoreHub {
         require(isStoreOwner[_store][msg.sender] == true);
         require(availableDaiInsideStore[_store] >= _amount);
         require(_rate > 0 && _rate <= 10000);
-        uint256 balanceAfterFee = _amount;
         availableDaiInsideStore[_store] -= _amount;
-        
-        if(malusToken.balanceOf(_store) < 15000000000000000000) {
-            uint256 fee = (_amount * 50) / 10000;
-            Store currentStore = Store(_store);
-            availableDaiInsideStore[firstStore] += fee;
-            currentStore.sendDAI(firstStore, fee, false); 
-            balanceAfterFee = _amount - fee;
-        }
-        
-        collateralReliefInsideStore[_store][_rate] += balanceAfterFee;
+        collateralReliefInsideStore[_store][_rate] += _amount;
         emit CollateralReliefUpdated(_store, collateralReliefInsideStore[_store][_rate], availableDaiInsideStore[_store], _rate, true);
     }
     
@@ -257,9 +227,8 @@ contract mDaiToken is General {
     mapping (address => uint256) balances;
     mapping (address => mapping (address => uint256)) allowed;
     
-    constructor(address malusTokenAddress, address _sender) {
-        malusToken = Proxy(malusTokenAddress);
-        feeCollector = _sender;
+    constructor() {
+        
     }
     
     function balanceOf(address _owner) override public view returns (uint balance) {
@@ -358,8 +327,8 @@ contract mDaiToken is General {
 contract Deployer {
     address public mDaiTokenAddress;
     
-    constructor(address malusTokenAddress) {
-        mDaiToken mDai = new mDaiToken(malusTokenAddress, msg.sender);
+    constructor() {
+        mDaiToken mDai = new mDaiToken();
         mDaiTokenAddress = address(mDai);
     }
 }
