@@ -9,9 +9,9 @@ abstract contract ERC20 {
 
 
 interface StoreInterface {
-    function getExtensionStake() external view returns(uint256, address);
-    function getExtensionCollateral() external view returns(uint256, address);
-    function setCollateral(uint256 _amount) external view;
+    function getExtensionStake(uint256 _selector) external view returns(uint256, address);
+    function getExtensionCollateral(uint256 _selector) external view returns(uint256, address);
+    function setCollateral(uint256 _amount, uint256 _selector) external;
 }
 
 
@@ -20,48 +20,52 @@ interface StoreExtension {
 }
 
 
-contract StoreProxy {
-    
-    uint256 public collateral;
-    uint256 public stake = 70;
-    address public storeHub;
-    address public extension;
-    address public owner;
-    
-    function getExtensionStake() external view returns(uint256, address) {
-        return (stake, extension);
-    }
-    
-    function getExtensionCollateral() external view returns(uint256, address) {
-        return (collateral, extension);
-    }
+interface StoreHubInterface {
+    function initializeBalance(address _store) external;
+    function withdraw(address _to) external;
+}
+
+
+interface StoreProxy {
+    function init(address _owner, address usdtHub, address daiHub) external;
 }
 
 
 contract StoreHub {
-    
     event StoreCreated(address indexed store, address owner, uint256 creationDate); 
     event PaymentReceived(address indexed store, uint256 amount);
     event BurnTokens(address indexed store, uint256 amount);
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 availableFunds, uint256 rate, bool didAdd);
-    event MetaDataUpdated(address indexed store, string[7] metaData);
     
     ERC20 public usdcContract;
+    address public usdtStoreHub;
+    address public daiStoreHub;
+    address public storeImplementation;
+    
     mapping(address => bool) public isValidStore;
-    mapping(address => uint256) public availableUSDC;
+    mapping(address => uint256) public storeBalance;
     
     function deployStore() external {
-        StoreProxy newStore = new StoreProxy();
-        isValidStore[address(newStore)] = true;
-        availableUSDC[address(newStore)] = 1;
-        emit StoreCreated(address(newStore), msg.sender, block.timestamp);
+        address newStore;
+        bytes20 targetBytes = bytes20(storeImplementation);
+        assembly {
+            let clone := mload(0x40)
+            mstore(clone, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
+            mstore(add(clone, 0x14), targetBytes)
+            mstore(add(clone, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
+            newStore := create(0, clone, 0x37)
+        }
+        StoreProxy(newStore).init(msg.sender, usdtStoreHub, daiStoreHub);
+        isValidStore[newStore] = true;
+        storeBalance[newStore] = 1;
+
+        emit StoreCreated(newStore, msg.sender, block.timestamp);
     }
     
-    function withdraw(address _to, uint256 _amount) external {
+    function withdraw(address _to) external {
         require(isValidStore[msg.sender] == true);
-        require(availableUSDC[msg.sender] >= _amount);
-        availableUSDC[msg.sender] -= _amount;
-        usdcContract.transferFrom(address(this), _to, _amount);
+        usdcContract.transferFrom(address(this), _to, storeBalance[msg.sender]);
+        storeBalance[msg.sender] = 1;
     }
 }
 
@@ -74,8 +78,9 @@ contract mUSDC is StoreHub {
     mapping(address => uint256) balances;
     mapping (address => mapping (address => uint256)) allowed;
     
-    constructor(address _usdcContract) {
+    constructor(address _usdcContract, address _implementation) {
         usdcContract = ERC20(_usdcContract);
+        storeImplementation = _implementation;
     }
     
     function balanceOf(address _owner) public view returns (uint balance) {
@@ -87,7 +92,7 @@ contract mUSDC is StoreHub {
         
         if(isValidStore[_to] == true) {
             StoreInterface store = StoreInterface(_to);
-            (uint256 collateral, address extensionAddress) = store.getExtensionCollateral();
+            (uint256 collateral, address extensionAddress) = store.getExtensionCollateral(0);
             if(collateral >= _amount) { 
                 _burn(store, _from, extensionAddress, _amount); 
                 return true;
@@ -117,15 +122,16 @@ contract mUSDC is StoreHub {
     }
     
     function mint(StoreInterface _store, uint256 _amount) external {
-        (uint256 stake, address extensionAddress) = _store.getExtensionStake();
-        require((stake - (((availableUSDC[address(_store)] - 1) * 700) / 10000)) >= ((_amount * 700) / 10000)); 
+        (uint256 stake, address extensionAddress) = _store.getExtensionStake(0);
+        uint256 cashbackAmount = ((_amount * 700) / 10000);
+        uint256 prevStoreBalance = (storeBalance[address(_store)] += _amount) - _amount;
+        require(cashbackAmount >= 1);
+        require((stake - (((prevStoreBalance - 1) * 700) / 10000)) >= cashbackAmount); 
         usdcContract.transferFrom(msg.sender, address(this), _amount);
-        availableUSDC[address(_store)] += _amount;
-        balances[msg.sender] += _amount;
+        balances[msg.sender] += cashbackAmount;
         
         if(extensionAddress != address(0)) {
-            StoreExtension extension = StoreExtension(extensionAddress);
-            extension.processPayment(msg.sender, _amount);
+            StoreExtension(extensionAddress).processPayment(msg.sender, _amount);
         }
         emit PaymentReceived(address(_store), _amount);
     }
@@ -136,7 +142,7 @@ contract mUSDC is StoreHub {
             allowed[_from][msg.sender] -= _amount;
         }
         
-        _store.setCollateral(_amount);
+        _store.setCollateral(_amount, 0);
         balances[_from] -= _amount; 
         
         if(extensionAddress != address(0)) {
@@ -146,4 +152,3 @@ contract mUSDC is StoreHub {
         emit BurnTokens(address(_store), _amount);
     }
 }
-
