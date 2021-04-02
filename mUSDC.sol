@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 
 abstract contract ERC20 {
-    function balanceOf(address _owner) virtual public view returns (uint balance);
+    function balanceOf(address _owner) virtual public view returns (uint256 balance);
     function transferFrom(address _from, address _to, uint256 _amount) virtual public returns (bool success); 
 }
 
@@ -72,6 +72,10 @@ contract StoreHub {
 
 contract mUSDC is StoreHub {
     
+    string public name = "Malus USDC Token";
+    string public symbol = "mUSDC";
+    uint public decimals = 18;
+    
     event Transfer(address indexed _from, address indexed _to, uint256 _amount);
     event Approval(address indexed _owner, address indexed _spender, uint256 _amount);
     
@@ -83,7 +87,11 @@ contract mUSDC is StoreHub {
         storeImplementation = _implementation;
     }
     
-    function balanceOf(address _owner) public view returns (uint balance) {
+    function totalSupply() public view returns (uint256) {
+        return  (usdcContract.balanceOf(address(this)) * 700)/10000;
+    }
+    
+    function balanceOf(address _owner) public view returns (uint256 balance) {
         return balances[_owner];
     }
     
