@@ -6,9 +6,14 @@ abstract contract ERC20 {
     function transferFrom(address _from, address _to, uint256 _amount) virtual public returns (bool success); 
 }
 
+interface StoreInterface {
+    function receiveCollateral(uint256 _amount, uint _option) external;
+}
+
 
 interface StoreHubInterface {
     function withdraw(address _to) external;
+    function isStoreValid(address _store) external view returns (bool);
 }
 
 
@@ -36,14 +41,6 @@ contract Store {
         ];
     }
     
-    function getExtensionStake(uint256 _selector) external view returns(uint256, address) {
-        return (stake[_selector], extension);
-    }
-    
-    function getExtensionCollateral(uint256 _selector) external view returns(uint256, address) {
-        return (collateral[_selector], extension);
-    }
-    
     function sendERC20(address _tokenContract, address _to, uint256 _amount) external {
         require(msg.sender == owner);
         ERC20 erc20Contract = ERC20(_tokenContract);
@@ -61,6 +58,18 @@ contract Store {
         erc20Contract.transferFrom(address(this), _to, _amount);
     }
     
+    function _getAvailableFunds(ERC20 erc20Contract, uint256 _selector) internal view returns (uint256) {
+        return erc20Contract.balanceOf(address(this)) - (collateral[_selector] + stake[_selector] + totalRelief[_selector]);
+    } 
+}
+
+
+contract Stake is Store {
+    
+    function getExtensionStake(uint256 _selector) external view returns(uint256, address) {
+        return (stake[_selector], extension);
+    }
+    
     function updateStake(uint256 _selector, uint256 _amount, bool _addStake) external {
         require(msg.sender == owner);
         StoreHubInterface hub = StoreHubInterface(storeHub[_selector]);
@@ -73,13 +82,31 @@ contract Store {
             hub.withdraw(address(this));
         }
     }
+}
+
+
+contract Collateral is Stake {
     
-    function setCollateral(uint256 _amount, uint256 _selector) external {
-        require(msg.sender == storeHub[0] || msg.sender == storeHub[1] || msg.sender == storeHub[2]);
-        collateral[_selector] -= _amount;
+    function getExtensionCollateral(uint256 _option) external view returns(uint256, address) {
+        return (collateral[_option], extension);
     }
     
-    function _getAvailableFunds(ERC20 erc20Contract, uint256 _selector) internal view returns (uint256) {
-        return erc20Contract.balanceOf(address(this)) - (collateral[_selector] + stake[_selector] + totalRelief[_selector]);
-    } 
+    function transferCollateral(StoreInterface _store, uint256 _amount, uint _option) external {
+        require(msg.sender == owner);
+        require(StoreHubInterface(storeHub[0]).isStoreValid(address(_store)) == true);
+        require(collateral[_option] >= _amount);
+        collateral[_option] -= _amount;
+        _store.receiveCollateral(_amount, _option);
+        ERC20(aTokenAddress[_option]).transferFrom(address(this), address(_store), _amount);
+    }
+    
+    function receiveCollateral(uint256 _amount, uint _option) external {
+        require(StoreHubInterface(storeHub[0]).isStoreValid(address(msg.sender))  == true);
+        collateral[_option] += _amount;
+    }
+    
+    function setCollateral(uint256 _amount, uint256 _option) external {
+        require(msg.sender == storeHub[_option]);
+        collateral[_option] -= _amount;
+    }
 }
