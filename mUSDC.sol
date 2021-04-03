@@ -9,9 +9,9 @@ abstract contract ERC20 {
 
 
 interface StoreInterface {
-    function getExtensionStake(uint256 _selector) external view returns(uint256, address);
-    function getExtensionCollateral(uint256 _selector) external view returns(uint256, address);
-    function setCollateral(uint256 _amount, uint256 _selector) external;
+    function getExtensionStake(uint256 _option) external view returns(uint256, address);
+    function getExtensionCollateral(uint256 _option) external view returns(uint256, address);
+    function setCollateral(uint256 _amount, uint256 _option) external;
 }
 
 
@@ -42,8 +42,12 @@ contract StoreHub {
     address public daiStoreHub;
     address public storeImplementation;
     
-    mapping(address => bool) public isValidStore;
+    mapping(address => bool) isValidStore;
     mapping(address => uint256) public storeBalance;
+    
+    function isStoreValid(address _store) external view returns (bool) {
+         return isValidStore[_store];
+    }
     
     function deployStore() external {
         address newStore;
@@ -64,8 +68,9 @@ contract StoreHub {
     
     function withdraw(address _to) external {
         require(isValidStore[msg.sender] == true);
-        usdcContract.transferFrom(address(this), _to, storeBalance[msg.sender]);
         storeBalance[msg.sender] = 1;
+        usdcContract.transferFrom(address(this), _to, storeBalance[msg.sender]);
+        
     }
 }
 
@@ -88,7 +93,7 @@ contract mUSDC is StoreHub {
     }
     
     function totalSupply() public view returns (uint256) {
-        return  (usdcContract.balanceOf(address(this)) * 700)/10000;
+        return (usdcContract.balanceOf(address(this)) * 700)/10000;
     }
     
     function balanceOf(address _owner) public view returns (uint256 balance) {
@@ -135,8 +140,8 @@ contract mUSDC is StoreHub {
         uint256 prevStoreBalance = (storeBalance[address(_store)] += _amount) - _amount;
         require(cashbackAmount >= 1);
         require((stake - (((prevStoreBalance - 1) * 700) / 10000)) >= cashbackAmount); 
-        usdcContract.transferFrom(msg.sender, address(this), _amount);
         balances[msg.sender] += cashbackAmount;
+        usdcContract.transferFrom(msg.sender, address(this), _amount);
         
         if(extensionAddress != address(0)) {
             StoreExtension(extensionAddress).processPayment(msg.sender, _amount);
