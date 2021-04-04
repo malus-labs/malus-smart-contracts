@@ -9,9 +9,9 @@ abstract contract ERC20 {
 
 
 interface StoreInterface {
-    function getExtensionStake(uint256 _option) external view returns(uint256, address);
-    function getExtensionCollateral(uint256 _option) external view returns(uint256, address);
-    function setCollateral(uint256 _amount, uint256 _option) external;
+    function getExtensionStake(uint _option) external view returns(uint256, address);
+    function getExtensionCollateral(uint _option) external view returns(uint256, address);
+    function updateCollateral(uint256 _amount, uint256 _option) external;
 }
 
 
@@ -100,6 +100,10 @@ contract mUSDC is StoreHub {
         return balances[_owner];
     }
     
+    function transfer(address _to, uint256 _amount) public returns (bool success) {
+        return transferFrom(msg.sender, _to, _amount);
+    }
+    
     function transferFrom(address _from, address _to, uint256 _amount) public returns (bool success) {
         require(balances[_from] >= _amount);
         
@@ -113,7 +117,7 @@ contract mUSDC is StoreHub {
             else { return false; }
         }
         
-        if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
+        if (_from != msg.sender && allowed[_from][msg.sender] < (2**256 - 1)) {
             require(allowed[_from][msg.sender] >= _amount);
             allowed[_from][msg.sender] -= _amount;
         }
@@ -150,12 +154,12 @@ contract mUSDC is StoreHub {
     }
     
     function _burn(StoreInterface _store, address _from, address extensionAddress, uint256 _amount) private {
-        if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
+        if (_from != msg.sender && allowed[_from][msg.sender] < (2**256 - 1)) {
             require(allowed[_from][msg.sender] >= _amount);
             allowed[_from][msg.sender] -= _amount;
         }
         
-        _store.setCollateral(_amount, 0);
+        _store.updateCollateral(_amount, 0);
         balances[_from] -= _amount; 
         
         if(extensionAddress != address(0)) {
