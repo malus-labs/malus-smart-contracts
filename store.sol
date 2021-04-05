@@ -6,6 +6,7 @@ abstract contract ERC20 {
     function transferFrom(address _from, address _to, uint256 _amount) virtual public returns (bool success); 
 }
 
+
 interface StoreInterface {
     function receiveCollateral(uint256 _amount, uint256 _rate, uint _option, bool _isTrade) external;
 }
