@@ -16,7 +16,7 @@ interface StoreInterface {
 
 
 interface StoreExtension {
-    function processPayment(address _customer, uint256 _amount) external;
+    function processPayment(address _customer, uint256 _tokenID, uint256 _amount) external;
 }
 
 
@@ -32,10 +32,13 @@ interface StoreProxy {
 
 
 contract StoreHub {
+    event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
+    event StakeCollateralUpdated(address indexed store, uint256 collateral, uint256 stake);
     event StoreCreated(address indexed store, address owner, uint256 creationDate); 
+    event ExtensionUpdated(address indexed store, address extension);
     event PaymentReceived(address indexed store, uint256 amount);
+    event OwnerUpdated(address indexed store, address newOwner);
     event BurnTokens(address indexed store, uint256 amount);
-    event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 availableFunds, uint256 rate, bool didAdd);
     
     ERC20 public usdcContract;
     address public usdtStoreHub;
@@ -66,11 +69,34 @@ contract StoreHub {
         emit StoreCreated(newStore, msg.sender, block.timestamp);
     }
     
-    function withdraw(address _to) external {
+    function withdraw() external {
         require(isValidStore[msg.sender] == true);
         storeBalance[msg.sender] = 1;
-        usdcContract.transferFrom(address(this), _to, storeBalance[msg.sender]);
+        usdcContract.transferFrom(address(this), msg.sender, storeBalance[msg.sender]);
+        //emit 
+    }
+    
+    function callEvent(
+        address _value1,
+        uint256 _value2, 
+        uint256 _value3, 
+        bool _value4,
+        uint _option
+    ) external {
+        require(isValidStore[msg.sender] == true);
         
+        if(_option == 0) {
+            emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
+        }
+        else if(_option == 1) {
+            emit StakeCollateralUpdated(msg.sender, _value2, _value3);
+        }
+        else if(_option == 2) {
+            emit ExtensionUpdated(msg.sender, _value1);
+        }
+        else {
+            emit OwnerUpdated(msg.sender, _value1);
+        }
     }
 }
 
@@ -109,12 +135,8 @@ contract mUSDC is StoreHub {
         
         if(isValidStore[_to] == true) {
             StoreInterface store = StoreInterface(_to);
-            (uint256 collateral, address extensionAddress) = store.getExtensionCollateral(0);
-            if(collateral >= _amount) { 
-                _burn(store, _from, extensionAddress, _amount); 
-                return true;
-            }
-            else { return false; }
+            burn(store, _from, 0, _amount); 
+            return true;
         }
         
         if (_from != msg.sender && allowed[_from][msg.sender] < (2**256 - 1)) {
@@ -138,7 +160,7 @@ contract mUSDC is StoreHub {
         return allowed[_owner][_spender];
     }
     
-    function mint(StoreInterface _store, uint256 _amount) external {
+    function mint(StoreInterface _store, uint256 _tokenID, uint256 _amount) external {
         (uint256 stake, address extensionAddress) = _store.getExtensionStake(0);
         uint256 cashbackAmount = ((_amount * 700) / 10000);
         uint256 prevStoreBalance = (storeBalance[address(_store)] += _amount) - _amount;
@@ -148,12 +170,15 @@ contract mUSDC is StoreHub {
         usdcContract.transferFrom(msg.sender, address(this), _amount);
         
         if(extensionAddress != address(0)) {
-            StoreExtension(extensionAddress).processPayment(msg.sender, _amount);
+            StoreExtension(extensionAddress).processPayment(msg.sender, _tokenID, _amount);
         }
         emit PaymentReceived(address(_store), _amount);
     }
     
-    function _burn(StoreInterface _store, address _from, address extensionAddress, uint256 _amount) private {
+    function burn(StoreInterface _store, address _from, uint256 _tokenID, uint256 _amount) public {
+        (uint256 collateral, address extensionAddress) = _store.getExtensionCollateral(0);
+        require(collateral >= _amount);
+        
         if (_from != msg.sender && allowed[_from][msg.sender] < (2**256 - 1)) {
             require(allowed[_from][msg.sender] >= _amount);
             allowed[_from][msg.sender] -= _amount;
@@ -164,7 +189,7 @@ contract mUSDC is StoreHub {
         
         if(extensionAddress != address(0)) {
             StoreExtension extension = StoreExtension(extensionAddress);
-            extension.processPayment(_from, _amount);
+            extension.processPayment(_from, _tokenID, _amount);
         }
         emit BurnTokens(address(_store), _amount);
     }
