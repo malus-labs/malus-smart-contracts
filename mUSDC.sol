@@ -33,12 +33,12 @@ interface StoreProxy {
 
 contract StoreHub {
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
-    event StakeCollateralUpdated(address indexed store, uint256 collateral, uint256 stake);
+    event StakeCollateralUpdated(address indexed store, uint256 stake, uint256 collateral);
     event StoreCreated(address indexed store, address owner, uint256 creationDate); 
+    event BurnTokens(address indexed store, address customer, uint256 amount);
     event ExtensionUpdated(address indexed store, address extension);
     event PaymentReceived(address indexed store, uint256 amount);
     event OwnerUpdated(address indexed store, address newOwner);
-    event BurnTokens(address indexed store, uint256 amount);
     
     ERC20 public usdcContract;
     address public usdtStoreHub;
@@ -69,11 +69,11 @@ contract StoreHub {
         emit StoreCreated(newStore, msg.sender, block.timestamp);
     }
     
-    function withdraw() external {
+    function withdraw(uint256 _collateral) external {
         require(isValidStore[msg.sender] == true);
         storeBalance[msg.sender] = 1;
         usdcContract.transferFrom(address(this), msg.sender, storeBalance[msg.sender]);
-        //emit 
+        emit StakeCollateralUpdated(msg.sender, 0, _collateral);
     }
     
     function callEvent(
@@ -188,9 +188,8 @@ contract mUSDC is StoreHub {
         balances[_from] -= _amount; 
         
         if(extensionAddress != address(0)) {
-            StoreExtension extension = StoreExtension(extensionAddress);
-            extension.processPayment(_from, _tokenID, _amount);
+            StoreExtension(extensionAddress).processPayment(_from, _tokenID, _amount);
         }
-        emit BurnTokens(address(_store), _amount);
+        emit BurnTokens(address(_store), msg.sender, _amount);
     }
 }
