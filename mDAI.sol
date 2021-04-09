@@ -28,11 +28,8 @@ interface StoreExtension {
 contract StoreHub {
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
     event StakeCollateralUpdated(address indexed store, uint256 stake, uint256 collateral);
-    event StoreCreated(address indexed store, address owner, uint256 creationDate); 
     event BurnTokens(address indexed store, address customer, uint256 amount);
-    event ExtensionUpdated(address indexed store, address extension);
     event PaymentReceived(address indexed store, uint256 amount);
-    event OwnerUpdated(address indexed store, address newOwner);
     
     ERC20 public daiContract;
     address public usdcStoreHub;
@@ -66,18 +63,13 @@ contract StoreHub {
         uint _option
     ) external {
         require(StoreHubInterface(usdcStoreHub).isValidStore(msg.sender) == true);
+        _value1;
         
         if(_option == 0) {
             emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
         }
         else if(_option == 1) {
             emit StakeCollateralUpdated(msg.sender, _value2, _value3);
-        }
-        else if(_option == 2) {
-            emit ExtensionUpdated(msg.sender, _value1);
-        }
-        else {
-            emit OwnerUpdated(msg.sender, _value1);
         }
     }
 }
@@ -142,7 +134,7 @@ contract mDAI is StoreHub {
     }
     
     function mint(StoreInterface _store, uint256 _tokenID, uint256 _amount) external {
-        (uint256 stake, address extensionAddress) = _store.getExtensionStake(1);
+        (uint256 stake, address extensionAddress) = _store.getExtensionStake(2);
         uint256 cashbackAmount = ((_amount * 700) / 10000);
         uint256 prevStoreBalance = (storeBalance[address(_store)] += _amount) - _amount;
         require(cashbackAmount >= 1);
@@ -157,7 +149,7 @@ contract mDAI is StoreHub {
     }
     
     function burn(StoreInterface _store, address _from, uint256 _tokenID, uint256 _amount) public {
-        (uint256 collateral, address extensionAddress) = _store.getExtensionCollateral(1);
+        (uint256 collateral, address extensionAddress) = _store.getExtensionCollateral(2);
         require(collateral >= _amount);
         
         if (_from != msg.sender && allowed[_from][msg.sender] < (2**256 - 1)) {
@@ -165,7 +157,7 @@ contract mDAI is StoreHub {
             allowed[_from][msg.sender] -= _amount;
         }
         
-        _store.updateCollateral(_amount, 1);
+        _store.updateCollateral(_amount, 2);
         balances[_from] -= _amount; 
         
         if(extensionAddress != address(0)) {

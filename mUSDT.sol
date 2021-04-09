@@ -28,11 +28,8 @@ interface StoreExtension {
 contract StoreHub {
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
     event StakeCollateralUpdated(address indexed store, uint256 stake, uint256 collateral);
-    event StoreCreated(address indexed store, address owner, uint256 creationDate); 
     event BurnTokens(address indexed store, address customer, uint256 amount);
-    event ExtensionUpdated(address indexed store, address extension);
     event PaymentReceived(address indexed store, uint256 amount);
-    event OwnerUpdated(address indexed store, address newOwner);
     
     ERC20 public usdtContract;
     address public usdcStoreHub;
@@ -66,18 +63,13 @@ contract StoreHub {
         uint _option
     ) external {
         require(StoreHubInterface(usdcStoreHub).isValidStore(msg.sender) == true);
+        _value1;
         
         if(_option == 0) {
             emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
         }
         else if(_option == 1) {
             emit StakeCollateralUpdated(msg.sender, _value2, _value3);
-        }
-        else if(_option == 2) {
-            emit ExtensionUpdated(msg.sender, _value1);
-        }
-        else {
-            emit OwnerUpdated(msg.sender, _value1);
         }
     }
 }
