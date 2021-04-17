@@ -21,7 +21,7 @@ interface StoreExtension {
 
 
 interface StoreHubInterface {
-    function initializeBalance(address _store) external;
+    function initBalance(address _store) external;
     function withdraw(address _to) external;
 }
 
@@ -65,7 +65,8 @@ contract StoreHub {
         StoreProxy(newStore).init(msg.sender, usdtStoreHub, daiStoreHub);
         isValidStore[newStore] = true;
         storeBalance[newStore] = 1;
-
+        StoreHubInterface(usdtStoreHub).initBalance(newStore);
+        StoreHubInterface(daiStoreHub).initBalance(newStore);
         emit StoreCreated(newStore, msg.sender, block.timestamp);
     }
     
@@ -113,8 +114,10 @@ contract mUSDC is StoreHub {
     mapping(address => uint256) balances;
     mapping (address => mapping (address => uint256)) allowed;
     
-    constructor(address _usdcContract, address _implementation) {
+    constructor(address _usdcContract, address _usdtStoreHub, address _daiStoreHub, address _implementation) {
         usdcContract = ERC20(_usdcContract);
+        usdtStoreHub = _usdtStoreHub;
+        daiStoreHub = _daiStoreHub;
         storeImplementation = _implementation;
     }
     
