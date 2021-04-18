@@ -55,13 +55,13 @@ contract Assets is Store {
         require(msg.sender == owner);
         ERC20 erc20Contract = ERC20(_tokenContract);
         
-        if(storeHub[0] == _tokenContract) {
+        if(aToken[0] == _tokenContract) {
             require(_getAvailableFunds(erc20Contract, 0) >= _amount);
         }
-        else if(storeHub[1] == _tokenContract) {
+        else if(aToken[1] == _tokenContract) {
             require(_getAvailableFunds(erc20Contract, 1) >= _amount);
         }
-        else if(storeHub[2] == _tokenContract) {
+        else if(aToken[2] == _tokenContract) {
             require(_getAvailableFunds(erc20Contract, 2) >= _amount);
         }
         
@@ -88,6 +88,7 @@ contract Stake is Assets {
     
     function updateStake(uint256 _amount, uint _option, bool _addStake) external {
         require(msg.sender == owner);
+        require(_getAvailableFunds(ERC20(aToken[_option]), _option) >= _amount);
 
         if(_addStake == true) {
             stake[_option] += _amount;
@@ -111,7 +112,7 @@ contract Collateral is Stake {
         require(_rate > 0 && _rate <= 10000);
         
         if(_addRelief == true) {
-            require(_getAvailableFunds(ERC20(address(aToken[_option])), _option) >= _amount);
+            require(_getAvailableFunds(ERC20(aToken[_option]), _option) >= _amount);
             collateralRelief[_option][_rate] += _amount;
             totalRelief[_option] += _amount;
             StoreHubInterface(storeHub[_option]).callEvent(address(0), collateralRelief[_option][_rate], _rate, true, 0);
