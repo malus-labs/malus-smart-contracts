@@ -37,9 +37,9 @@ contract Store {
         owner = _owner;
         storeHub = [msg.sender, usdtHub, daiHub];
         aToken = [
-            0x9bA00D6856a4eDF4665BcA2C2309936572473B7E, 
-            0x71fc860F7D3A592A4a98740e39dB31d25db65ae8,
-            0x028171bCA77440897B824Ca71D1c56caC55b68A3
+            0xd9145CCE52D386f254917e481eB44e9943F39138, 
+            0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8,
+            0xf8e81D47203A594245E36C48e151709F0C19fBe8
         ];
     }
 }
@@ -47,7 +47,7 @@ contract Store {
 
 contract Assets is Store {
     
-    function _getAvailableFunds(ERC20 erc20Contract, uint256 _option) internal view returns (uint256) {
+    function _getAvailableFunds(ERC20 erc20Contract, uint256 _option) public view returns (uint256) {
         return erc20Contract.balanceOf(address(this)) - (collateral[_option] + stake[_option] + totalRelief[_option]);
     }
     
@@ -71,9 +71,7 @@ contract Assets is Store {
     function claimStoreHubBalance(uint _option) public {
         require(msg.sender == owner);
         uint256 storeBalance = StoreHubInterface(storeHub[_option]).storeBalance(address(this)) - 1;
-        uint256 collateralIncrease = ((storeBalance * 700)/10000);
-        require(collateralIncrease >= 1);
-        collateral[_option] += collateralIncrease;
+        collateral[_option] += ((storeBalance * 700)/10000);
         stake[_option] = 0;
         StoreHubInterface(storeHub[_option]).withdraw(collateral[_option]);
     }
