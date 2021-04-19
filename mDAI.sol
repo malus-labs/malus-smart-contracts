@@ -38,7 +38,7 @@ contract StoreHub {
     
     
     function initUSDCHub(address _usdcStoreHub) external {
-        require(usdcStoreHub != address(0));
+        require(usdcStoreHub == address(0));
         usdcStoreHub = _usdcStoreHub;
     }
     
