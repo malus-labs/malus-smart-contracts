@@ -48,6 +48,7 @@ contract Store {
 contract Assets is Store {
     
     function _getAvailableFunds(ERC20 erc20Contract, uint256 _option) public view returns (uint256) {
+        require(address(erc20Contract) == aToken[_option]);
         return erc20Contract.balanceOf(address(this)) - (collateral[_option] + stake[_option] + totalRelief[_option]);
     }
     
