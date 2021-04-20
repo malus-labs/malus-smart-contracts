@@ -35,9 +35,7 @@ contract StoreHub {
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
     event StakeCollateralUpdated(address indexed store, uint256 stake, uint256 collateral);
     event StoreCreated(address indexed store, address owner, uint256 creationDate); 
-    event BurnTokens(address indexed store, address customer, uint256 amount);
     event ExtensionUpdated(address indexed store, address extension);
-    event PaymentReceived(address indexed store, uint256 amount);
     event OwnerUpdated(address indexed store, address newOwner);
     
     ERC20 public usdcContract;
@@ -175,7 +173,7 @@ contract mUSDC is StoreHub {
         if(extensionAddress != address(0)) {
             StoreExtension(extensionAddress).processPayment(msg.sender, _tokenID, _amount);
         }
-        emit PaymentReceived(address(_store), _amount);
+        emit Transfer(address(_store), msg.sender, _amount);
     }
     
     function burn(StoreInterface _store, address _from, uint256 _tokenID, uint256 _amount) public {
@@ -193,6 +191,6 @@ contract mUSDC is StoreHub {
         if(extensionAddress != address(0)) {
             StoreExtension(extensionAddress).processPayment(_from, _tokenID, _amount);
         }
-        emit BurnTokens(address(_store), msg.sender, _amount);
+        emit Transfer(msg.sender, address(_store), _amount);
     }
 }

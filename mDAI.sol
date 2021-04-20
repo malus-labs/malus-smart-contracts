@@ -28,8 +28,6 @@ interface StoreExtension {
 contract StoreHub {
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
     event StakeCollateralUpdated(address indexed store, uint256 stake, uint256 collateral);
-    event BurnTokens(address indexed store, address customer, uint256 amount);
-    event PaymentReceived(address indexed store, uint256 amount);
     
     ERC20 public daiContract;
     address public usdcStoreHub;
@@ -145,7 +143,7 @@ contract mDAI is StoreHub {
         if(extensionAddress != address(0)) {
             StoreExtension(extensionAddress).processPayment(msg.sender, _tokenID, _amount);
         }
-        emit PaymentReceived(address(_store), _amount);
+        emit Transfer(address(_store), msg.sender, _amount);
     }
     
     function burn(StoreInterface _store, address _from, uint256 _tokenID, uint256 _amount) public {
@@ -163,6 +161,6 @@ contract mDAI is StoreHub {
         if(extensionAddress != address(0)) {
             StoreExtension(extensionAddress).processPayment(_from, _tokenID, _amount);
         }
-        emit BurnTokens(address(_store), msg.sender, _amount);
+        emit Transfer(msg.sender, address(_store), _amount);
     }
 }
