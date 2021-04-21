@@ -43,7 +43,7 @@ contract StoreHub {
     address public daiStoreHub;
     address public storeImplementation;
     
-    mapping(address => bool) isValidStore;
+    mapping(address => bool) public isValidStore;
     mapping(address => uint256) public storeBalance;
     
     function isStoreValid(address _store) external view returns (bool) {
