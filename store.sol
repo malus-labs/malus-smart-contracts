@@ -30,7 +30,7 @@ contract Store {
     address public extension;
     address public owner;
     
-    mapping(uint => mapping(uint256 => uint256)) collateralRelief;
+    mapping(uint => mapping(uint256 => uint256)) public collateralRelief;
     
     function init(address _owner, address usdtHub, address daiHub) external {
         require(storeHub[0] == address(0));
