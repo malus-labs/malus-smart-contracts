@@ -37,9 +37,9 @@ contract Store {
         owner = _owner;
         storeHub = [msg.sender, usdtHub, daiHub];
         aToken = [
-            0xd9145CCE52D386f254917e481eB44e9943F39138, 
-            0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8,
-            0xf8e81D47203A594245E36C48e151709F0C19fBe8
+            0xcD6a42782d230D7c13A74ddec5dD140e55499Df9, 
+            0xaE036c65C649172b43ef7156b009c6221B596B8b,
+            0x9d83e140330758a8fFD07F8Bd73e86ebcA8a5692
         ];
     }
 }
@@ -85,17 +85,11 @@ contract Stake is Assets {
         return (stake[_option], extension);
     }
     
-    function updateStake(uint256 _amount, uint _option, bool _addStake) external {
+    function addStake(uint256 _amount, uint _option) external {
         require(msg.sender == owner);
         require(_getAvailableFunds(ERC20(aToken[_option]), _option) >= _amount);
-
-        if(_addStake == true) {
-            stake[_option] += _amount;
-            StoreHubInterface(storeHub[_option]).callEvent(address(0), stake[_option], collateral[_option], false, 1);
-        }
-        else {
-            claimStoreHubBalance(_option);
-        }
+        stake[_option] += _amount;
+        StoreHubInterface(storeHub[_option]).callEvent(address(0), stake[_option], collateral[_option], false, 1);
     }
 }
 
