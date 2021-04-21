@@ -70,8 +70,9 @@ contract StoreHub {
     
     function withdraw(uint256 _collateral) external {
         require(isValidStore[msg.sender] == true);
+        uint256 balance = storeBalance[msg.sender] - 1;
         storeBalance[msg.sender] = 1;
-        usdcContract.transferFrom(address(this), msg.sender, storeBalance[msg.sender]);
+        usdcContract.transferFrom(address(this), msg.sender, balance);
         emit StakeCollateralUpdated(msg.sender, 0, _collateral);
     }
     
