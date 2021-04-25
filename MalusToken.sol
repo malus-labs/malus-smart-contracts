@@ -1,11 +1,9 @@
-pragma solidity ^0.8.0;
+/*pragma solidity ^0.8.0;
 //SPDX-License-Identifier: MIT
 
+//This is for a future release.. 
 contract MalusToken {
-    
-    string public name = "Malus Token";
-    string public symbol = "MUS";
-    uint public decimals = 18; 
+     
     uint256 public totalSupply;
     
     event Transfer(address indexed _from, address indexed _to, uint256 _amount);
@@ -30,7 +28,7 @@ contract MalusToken {
     function transferFrom(address _from, address _to, uint256 _amount)public returns (bool success) {
         require(balances[_from] >= _amount);
         
-        if (_from != msg.sender && allowed[_from][msg.sender] > 0) {
+        if (_from != msg.sender && allowed[_from][msg.sender] < (2**256 - 1)) {
             require(allowed[_from][msg.sender] >= _amount);
             allowed[_from][msg.sender] -=_amount;
         }
@@ -52,3 +50,4 @@ contract MalusToken {
         return allowed[_owner][_spender];
     }
 }
+*/
