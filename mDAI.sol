@@ -99,7 +99,18 @@ contract mDAI is StoreHub {
     }
     
     function transfer(address _to, uint256 _amount) public returns (bool success) {
-        return transferFrom(msg.sender, _to, _amount);
+        require(balances[msg.sender] >= _amount);
+        
+        if(StoreHubInterface(usdcStoreHub).isValidStore(_to) == true) {
+            StoreInterface store = StoreInterface(_to);
+            burn(store, msg.sender, 0, _amount); 
+            return true;
+        }
+        
+        balances[_to] += _amount;
+        balances[msg.sender] -= _amount;
+        emit Transfer(msg.sender, _to, _amount);
+        return true;
     }
     
     function transferFrom(address _from, address _to, uint256 _amount) public returns (bool success) {
