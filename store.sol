@@ -37,9 +37,9 @@ contract Store {
         owner = _owner;
         storeHub = [msg.sender, usdtHub, daiHub];
         aToken = [
-            0xcD6a42782d230D7c13A74ddec5dD140e55499Df9, 
-            0xaE036c65C649172b43ef7156b009c6221B596B8b,
-            0x9d83e140330758a8fFD07F8Bd73e86ebcA8a5692
+            0xd9145CCE52D386f254917e481eB44e9943F39138, 
+            0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8,
+            0xf8e81D47203A594245E36C48e151709F0C19fBe8
         ];
     }
 }
@@ -134,8 +134,8 @@ contract Collateral is Stake {
         require(StoreHubInterface(storeHub[0]).isValidStore(address(_store)) == true);
         require(lost >= 1);
         require(collateral[_option] >= _amount);
-        collateral[_option] -= (_amount - lost);
-        _store.receiveCollateral(_amount + lost, _rate, _option, true);
+        collateral[_option] -= _amount;
+        _store.receiveCollateral(_amount, _rate, _option, true);
         ERC20(aToken[_option]).transfer(address(_store), lost);
         StoreHubInterface(storeHub[_option]).callEvent(address(0), stake[_option], collateral[_option], false, 1);
     }
