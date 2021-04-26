@@ -46,10 +46,6 @@ contract StoreHub {
     mapping(address => bool) public isValidStore;
     mapping(address => uint256) public storeBalance;
     
-    function isStoreValid(address _store) external view returns (bool) {
-         return isValidStore[_store];
-    }
-    
     function deployStore() external {
         address newStore;
         bytes20 targetBytes = bytes20(storeImplementation);
@@ -180,6 +176,7 @@ contract mUSDC is StoreHub {
     function burn(StoreInterface _store, address _from, uint256 _tokenID, uint256 _amount) public {
         (uint256 collateral, address extensionAddress) = _store.getExtensionCollateral(0);
         require(collateral >= _amount);
+        require(balances[_from] >= _amount);
         
         if (_from != msg.sender && allowed[_from][msg.sender] < (2**256 - 1)) {
             require(allowed[_from][msg.sender] >= _amount);
