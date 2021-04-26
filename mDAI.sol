@@ -161,7 +161,7 @@ contract mDAI is StoreHub {
         balances[_from] -= _amount; 
         
         if(extensionAddress != address(0)) {
-            StoreExtension(extensionAddress).processPayment(_from, _tokenID, _amount);
+            StoreExtension(extensionAddress).processPayment(msg.sender, _tokenID, _amount);
         }
         emit Transfer(msg.sender, address(_store), _amount);
     }

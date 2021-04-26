@@ -32,10 +32,10 @@ contract Store {
     
     mapping(uint => mapping(uint256 => uint256)) public collateralRelief;
     
-    function init(address _owner, address usdtHub, address daiHub) external {
+    function init(address _owner, address _usdtHub, address _daiHub) external {
         require(storeHub[0] == address(0));
         owner = _owner;
-        storeHub = [msg.sender, usdtHub, daiHub];
+        storeHub = [msg.sender, _usdtHub, _daiHub];
         aToken = [
             0xd9145CCE52D386f254917e481eB44e9943F39138, 
             0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8,
@@ -47,9 +47,9 @@ contract Store {
 
 contract Assets is Store {
     
-    function _getAvailableFunds(ERC20 erc20Contract, uint256 _option) internal view returns (uint256) {
-        require(address(erc20Contract) == aToken[_option]);
-        return erc20Contract.balanceOf(address(this)) - (collateral[_option] + stake[_option] + totalRelief[_option]);
+    function _getAvailableFunds(ERC20 _erc20Contract, uint256 _option) internal view returns (uint256) {
+        require(address(_erc20Contract) == aToken[_option]);
+        return _erc20Contract.balanceOf(address(this)) - (collateral[_option] + stake[_option] + totalRelief[_option]);
     }
     
     function sendERC20(address _tokenContract, address _to, uint256 _amount) external {
