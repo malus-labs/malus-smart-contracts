@@ -160,6 +160,7 @@ contract mUSDT is StoreHub {
     
     function burn(StoreInterface _store, address _from, uint256 _tokenID, uint256 _amount) public {
         (uint256 collateral, address extensionAddress) = _store.getExtensionCollateral(1);
+        require(StoreHubInterface(usdcStoreHub).isValidStore(address(_store)) == true);
         require(collateral >= _amount);
         require(balances[_from] >= _amount);
         
