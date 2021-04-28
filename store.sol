@@ -89,7 +89,7 @@ contract Stake is Assets {
         require(msg.sender == owner);
         require(_getAvailableFunds(ERC20(aToken[_option]), _option) >= _amount);
         stake[_option] += _amount;
-        StoreHubInterface(storeHub[_option]).callEvent(address(0), stake[_option], collateral[_option], false, 1);
+        StoreHubInterface(storeHub[_option]).callEvent(address(0), _amount, 0, false, 0);
     }
 }
 
@@ -108,13 +108,13 @@ contract Collateral is Stake {
             require(_getAvailableFunds(ERC20(aToken[_option]), _option) >= _amount);
             collateralRelief[_option][_rate] += _amount;
             totalRelief[_option] += _amount;
-            StoreHubInterface(storeHub[_option]).callEvent(address(0), collateralRelief[_option][_rate], _rate, true, 0);
+            StoreHubInterface(storeHub[_option]).callEvent(address(0), collateralRelief[_option][_rate], _rate, true, 1);
         }
         else {
             require(collateralRelief[_option][_rate] >= _amount);
             collateralRelief[_option][_rate] -= _amount;
             totalRelief[_option] -= _amount;
-            StoreHubInterface(storeHub[_option]).callEvent(address(0), collateralRelief[_option][_rate], _rate, false, 0);
+            StoreHubInterface(storeHub[_option]).callEvent(address(0), collateralRelief[_option][_rate], _rate, false, 1);
         }
     }
     
@@ -125,7 +125,7 @@ contract Collateral is Stake {
         collateral[_option] -= _amount;
         _store.receiveCollateral(_amount, 0, _option, false);
         ERC20(aToken[_option]).transfer(address(_store), _amount);
-        StoreHubInterface(storeHub[_option]).callEvent(address(0), stake[_option], collateral[_option], false, 1);
+        StoreHubInterface(storeHub[_option]).callEvent(address(0), collateral[_option], 0, false, 2);
     }
     
     function sellCollateral(StoreInterface _store, uint256 _amount, uint256 _rate, uint _option) external {
@@ -137,7 +137,7 @@ contract Collateral is Stake {
         collateral[_option] -= _amount;
         _store.receiveCollateral(_amount, _rate, _option, true);
         ERC20(aToken[_option]).transfer(address(_store), lost);
-        StoreHubInterface(storeHub[_option]).callEvent(address(0), stake[_option], collateral[_option], false, 1);
+        StoreHubInterface(storeHub[_option]).callEvent(address(0), collateral[_option], 0, false, 2);
     }
     
     function receiveCollateral(uint256 _amount, uint256 _rate, uint _option, bool _isTrade) external {
@@ -149,6 +149,7 @@ contract Collateral is Stake {
             totalRelief[_option] -= _amount;
         }
         collateral[_option] += _amount;
+        StoreHubInterface(storeHub[_option]).callEvent(address(0), _amount, _rate, false, 3);
     }
     
     function updateCollateral(uint256 _amount, uint _option) external {
@@ -163,12 +164,12 @@ contract General is Collateral {
     function updateExtension(address _newExtension) external {
         require(msg.sender == owner);
         extension = _newExtension;
-        StoreHubInterface(storeHub[0]).callEvent(extension, 0, 0, false, 2);
+        StoreHubInterface(storeHub[0]).callEvent(extension, 0, 0, false, 4);
     }
     
     function updateOwner(address _newOwner) external {
         require(msg.sender == owner);
         owner = _newOwner;
-        StoreHubInterface(storeHub[0]).callEvent(owner, 0, 0, false, 3);
+        StoreHubInterface(storeHub[0]).callEvent(owner, 0, 0, false, 5);
     }
 }
