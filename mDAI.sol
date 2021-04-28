@@ -27,7 +27,8 @@ interface StoreExtension {
 
 contract StoreHub {
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
-    event StakeCollateralUpdated(address indexed store, uint256 stake, uint256 collateral);
+    event CollateralUpdated(address indexed store, uint256 collateral);
+    event StakeUpdated(address indexed store, uint256 stake);
     
     ERC20 public daiContract;
     address public usdcStoreHub;
@@ -45,7 +46,8 @@ contract StoreHub {
         uint256 balance = storeBalance[msg.sender] - 1;
         storeBalance[msg.sender] = 1;
         daiContract.transferFrom(address(this), msg.sender, balance);
-        emit StakeCollateralUpdated(msg.sender, 0, _collateral);
+        emit CollateralUpdated(msg.sender, _collateral);
+        emit StakeUpdated(msg.sender, 0);
     }
     
     function initBalance(address _store) external {
@@ -65,10 +67,17 @@ contract StoreHub {
         _value1;
         
         if(_option == 0) {
-            emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
+            emit StakeUpdated(msg.sender, _value2);
         }
         else if(_option == 1) {
-            emit StakeCollateralUpdated(msg.sender, _value2, _value3);
+            emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
+        }
+        else if(_option == 2) {
+            emit CollateralUpdated(msg.sender, _value2);
+        }
+        else if(_option == 3) {
+            emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
+            emit CollateralUpdated(msg.sender, _value2);
         }
     }
 }

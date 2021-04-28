@@ -33,10 +33,12 @@ interface StoreProxy {
 
 contract StoreHub {
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
-    event StakeCollateralUpdated(address indexed store, uint256 stake, uint256 collateral);
     event StoreCreated(address indexed store, address owner, uint256 creationDate); 
+    event CollateralUpdated(address indexed store, uint256 collateral);
     event ExtensionUpdated(address indexed store, address extension);
     event OwnerUpdated(address indexed store, address newOwner);
+    event StakeUpdated(address indexed store, uint256 stake);
+   
     
     ERC20 public usdcContract;
     address public usdtStoreHub;
@@ -69,7 +71,8 @@ contract StoreHub {
         uint256 balance = storeBalance[msg.sender] - 1;
         storeBalance[msg.sender] = 1;
         usdcContract.transferFrom(address(this), msg.sender, balance);
-        emit StakeCollateralUpdated(msg.sender, 0, _collateral);
+        emit CollateralUpdated(msg.sender, _collateral);
+        emit StakeUpdated(msg.sender, 0);
     }
     
     function callEvent(
@@ -82,12 +85,19 @@ contract StoreHub {
         require(isValidStore[msg.sender] == true);
         
         if(_option == 0) {
-            emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
+            emit StakeUpdated(msg.sender, _value2);
         }
         else if(_option == 1) {
-            emit StakeCollateralUpdated(msg.sender, _value2, _value3);
+            emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
         }
         else if(_option == 2) {
+            emit CollateralUpdated(msg.sender, _value2);
+        }
+        else if(_option == 3) {
+            emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
+            emit CollateralUpdated(msg.sender, _value2);
+        }
+        else if(_option == 4) {
             emit ExtensionUpdated(msg.sender, _value1);
         }
         else {
