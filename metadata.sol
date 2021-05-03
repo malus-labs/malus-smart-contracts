@@ -1,9 +1,9 @@
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 //SPDX-License-Identifier: MIT
 
 
-interface StoreHubInterface {
-    function isStoreValid(address _store) external view returns (bool);
+abstract contract StoreHubInterface {
+    mapping(address => bool) public isValidStore;
 }
 
 abstract contract StoreProxy {
@@ -20,7 +20,7 @@ contract Metadata {
     }
     
     function setMetaData(address _store, string[7] calldata _metaData) external {
-        require(usdcHub.isStoreValid(_store) == true);
+        require(usdcHub.isValidStore(_store) == true);
         require(StoreProxy(_store).owner() == msg.sender);
         emit MetaDataUpdated(_store, _metaData);
     }
