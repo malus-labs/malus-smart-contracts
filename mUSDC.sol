@@ -191,7 +191,7 @@ contract mUSDC is StoreHub {
         if(extensionAddress != address(0)) {
             StoreExtension(extensionAddress).processPayment(msg.sender, _tokenID, _amount);
         }
-        emit Transfer(address(_store), msg.sender, _amount);
+        emit Transfer(address(_store), msg.sender, cashbackAmount);
     }
     
     function burn(StoreInterface _store, address _from, uint256 _tokenID, uint256 _amount) public {
