@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 
 abstract contract ERC20 {
     function balanceOf(address _owner) virtual public view returns (uint256 balance);
+    function transfer(address _to, uint256 _amount) virtual public returns (bool success);
     function transferFrom(address _from, address _to, uint256 _amount) virtual public returns (bool success); 
 }
 
@@ -45,7 +46,7 @@ contract StoreHub {
         require(StoreHubInterface(usdcStoreHub).isValidStore(msg.sender) == true);
         uint256 balance = storeBalance[msg.sender] - 1;
         storeBalance[msg.sender] = 1;
-        daiContract.transferFrom(address(this), msg.sender, balance);
+        daiContract.transfer(msg.sender, balance);
         emit CollateralUpdated(msg.sender, _collateral);
         emit StakeUpdated(msg.sender, 0);
     }
