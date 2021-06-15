@@ -28,11 +28,14 @@ interface StoreExtension {
 
 contract StoreHub {
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
+    event CollateralTransfer(address indexed store, address to, uint256 amount, uint256 rate, bool didTrade);
+    event AtokenTransfer(address indexed store, address to, uint256 amount);
     event CollateralUpdated(address indexed store, uint256 collateral);
     event StakeUpdated(address indexed store, uint256 stake);
     
     ERC20 public daiContract;
     address public usdcStoreHub;
+    uint256 public totalSupply;
 
     mapping(address => uint256) public storeBalance;
     
@@ -45,9 +48,10 @@ contract StoreHub {
     function withdraw(uint256 _collateral) external {
         require(StoreHubInterface(usdcStoreHub).isValidStore(msg.sender) == true);
         uint256 balance = storeBalance[msg.sender] - 1;
+        totalSupply += ((balance * 700)/10000);
         storeBalance[msg.sender] = 1;
         daiContract.transfer(msg.sender, balance);
-        emit CollateralUpdated(msg.sender, _collateral);
+        emit CollateralTransfer(msg.sender, address(0), _collateral, 0, false);
         emit StakeUpdated(msg.sender, 0);
     }
     
@@ -74,11 +78,10 @@ contract StoreHub {
             emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
         }
         else if(_option == 2) {
-            emit CollateralUpdated(msg.sender, _value2);
+            emit CollateralTransfer(msg.sender, _value1, _value2, _value3, _value4);
         }
         else if(_option == 3) {
-            emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
-            emit CollateralUpdated(msg.sender, _value2);
+            emit AtokenTransfer(msg.sender, _value1, _value2);
         }
     }
 }
@@ -98,10 +101,6 @@ contract mDAI is StoreHub {
     
     constructor(address _daiContract) {
         daiContract = ERC20(_daiContract);
-    }
-    
-    function totalSupply() public view returns (uint256) {
-        return (daiContract.balanceOf(address(this)) * 700)/10000;
     }
     
     function balanceOf(address _owner) public view returns (uint256 balance) {
@@ -181,6 +180,7 @@ contract mDAI is StoreHub {
         
         _store.updateCollateral(_amount, 2);
         balances[_from] -= _amount; 
+        totalSupply -= _amount;
         
         if(extensionAddress != address(0)) {
             StoreExtension(extensionAddress).processPayment(msg.sender, _tokenID, _amount);

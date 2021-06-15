@@ -34,17 +34,18 @@ interface StoreProxy {
 
 contract StoreHub {
     event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
+    event CollateralTransfer(address indexed store, address to, uint256 amount, uint256 rate, bool didTrade);
     event StoreCreated(address indexed store, address owner, uint256 creationDate); 
-    event CollateralUpdated(address indexed store, uint256 collateral);
+    event AtokenTransfer(address indexed store, address to, uint256 amount);
     event ExtensionUpdated(address indexed store, address extension);
     event OwnerUpdated(address indexed store, address newOwner);
     event StakeUpdated(address indexed store, uint256 stake);
-   
     
     ERC20 public usdcContract;
     address public usdtStoreHub;
     address public daiStoreHub;
     address public storeImplementation;
+    uint256 public totalSupply;
     
     mapping(address => bool) public isValidStore;
     mapping(address => uint256) public storeBalance;
@@ -71,8 +72,9 @@ contract StoreHub {
         require(isValidStore[msg.sender] == true);
         uint256 balance = storeBalance[msg.sender] - 1;
         storeBalance[msg.sender] = 1;
+        totalSupply += _collateral;
         usdcContract.transfer(msg.sender, balance);
-        emit CollateralUpdated(msg.sender, _collateral);
+        emit CollateralTransfer(msg.sender, address(0), _collateral, 0, false);
         emit StakeUpdated(msg.sender, 0);
     }
     
@@ -92,11 +94,10 @@ contract StoreHub {
             emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
         }
         else if(_option == 2) {
-            emit CollateralUpdated(msg.sender, _value2);
+            emit CollateralTransfer(msg.sender, _value1, _value2, _value3, _value4);
         }
         else if(_option == 3) {
-            emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
-            emit CollateralUpdated(msg.sender, _value2);
+            emit AtokenTransfer(msg.sender, _value1, _value2);
         }
         else if(_option == 4) {
             emit ExtensionUpdated(msg.sender, _value1);
@@ -125,10 +126,6 @@ contract mUSDC is StoreHub {
         usdtStoreHub = _usdtStoreHub;
         daiStoreHub = _daiStoreHub;
         storeImplementation = _implementation;
-    }
-    
-    function totalSupply() public view returns (uint256) {
-        return (usdcContract.balanceOf(address(this)) * 700)/10000;
     }
     
     function balanceOf(address _owner) public view returns (uint256 balance) {
@@ -208,6 +205,7 @@ contract mUSDC is StoreHub {
         
         _store.updateCollateral(_amount, 0);
         balances[_from] -= _amount; 
+        totalSupply -= _amount;
         
         if(extensionAddress != address(0)) {
             StoreExtension(extensionAddress).processPayment(msg.sender, _tokenID, _amount);
