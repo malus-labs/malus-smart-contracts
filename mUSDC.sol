@@ -74,8 +74,7 @@ contract StoreHub {
         storeBalance[msg.sender] = 1;
         totalSupply += _collateral;
         usdcContract.transfer(msg.sender, balance);
-        emit CollateralTransfer(msg.sender, address(0), _collateral, 0, false);
-        emit StakeUpdated(msg.sender, 0);
+        emit CollateralTransfer(address(0), msg.sender, _collateral, 0, false);
     }
     
     function callEvent(
