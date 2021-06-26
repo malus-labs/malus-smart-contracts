@@ -115,13 +115,13 @@ contract Collateral is Stake {
             require(_getAvailableFunds(ERC20(aToken[_option]), _option) >= _amount);
             collateralRelief[_option][_rate] += _amount;
             totalRelief[_option] += _amount;
-            StoreHubInterface(storeHub[_option]).callEvent(address(0), collateralRelief[_option][_rate], _rate, true, 1);
+            StoreHubInterface(storeHub[_option]).callEvent(address(0), _amount, _rate, true, 1);
         }
         else {
             require(collateralRelief[_option][_rate] >= _amount);
             collateralRelief[_option][_rate] -= _amount;
             totalRelief[_option] -= _amount;
-            StoreHubInterface(storeHub[_option]).callEvent(address(0), collateralRelief[_option][_rate], _rate, false, 1);
+            StoreHubInterface(storeHub[_option]).callEvent(address(0), _amount, _rate, false, 1);
         }
     }
     

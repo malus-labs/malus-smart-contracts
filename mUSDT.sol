@@ -27,8 +27,8 @@ interface StoreExtension {
 
 
 contract StoreHub {
-    event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
     event CollateralTransfer(address indexed store, address to, uint256 amount, uint256 rate, bool didTrade);
+    event CollateralReliefUpdated(address indexed store, uint256 amount, uint256 rate, bool didAdd);
     event AtokenTransfer(address indexed store, address to, uint256 amount);
     event CollateralUpdated(address indexed store, uint256 collateral);
     event StakeUpdated(address indexed store, uint256 stake);

@@ -33,8 +33,8 @@ interface StoreProxy {
 
 
 contract StoreHub {
-    event CollateralReliefUpdated(address indexed store, uint256 collateralRelief, uint256 rate, bool didAdd);
     event CollateralTransfer(address indexed store, address to, uint256 amount, uint256 rate, bool didTrade);
+    event CollateralReliefUpdated(address indexed store, uint256 amount, uint256 rate, bool didAdd);
     event StoreCreated(address indexed store, address owner, uint256 creationDate); 
     event AtokenTransfer(address indexed store, address to, uint256 amount);
     event ExtensionUpdated(address indexed store, address extension);
