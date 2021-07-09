@@ -37,9 +37,9 @@ contract Store {
         owner = _owner;
         storeHub = [msg.sender, _usdtHub, _daiHub];
         aToken = [
-            0xBBDa05F84932ec5D533839F95039B0B9239F3db5, 
-            0x0aB41F07919C62c970CbBa23B6a2169Ed5B69cb8,
-            0x6B4869903318aD345e4B82379ff90E54aaf89DCb
+            0xBcca60bB61934080951369a648Fb03DF4F96263C, 
+            0x3Ed3B47Dd13EC9a98b44e6204A523E766B225811,
+            0x028171bCA77440897B824Ca71D1c56caC55b68A3
         ];
     }
 }
