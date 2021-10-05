@@ -3,9 +3,9 @@ pragma solidity ^0.8.4;
 
 
 abstract contract ERC20 {
-    function balanceOf(address _owner) virtual public view returns (uint256 balance);
-    function transfer(address _to, uint256 _amount) virtual public returns (bool success);
-    function transferFrom(address _from, address _to, uint256 _amount) virtual public returns (bool success); 
+    function balanceOf(address owner) virtual public view returns (uint256 balance);
+    function transfer(address to, uint256 amount) virtual public returns (bool success);
+    function transferFrom(address from, address to, uint256 amount) virtual public returns (bool success); 
 }
 
 
@@ -15,14 +15,14 @@ abstract contract StoreHubInterface {
 
 
 interface StoreInterface {
-    function getExtensionStake(uint _option) external view returns(uint256, address);
-    function getExtensionCollateral(uint _option) external view returns(uint256, address);
-    function updateCollateral(uint256 _amount, uint256 _option) external;
+    function getExtensionStake(uint option) external view returns(uint256, address);
+    function getExtensionCollateral(uint option) external view returns(uint256, address);
+    function updateCollateral(uint256 amount, uint256 option) external;
 }
 
 
 interface StoreExtension {
-    function processPayment(address _customer, uint256 _tokenID, uint256 _amount) external;
+    function processPayment(address customer, uint256 tokenID, uint256 amount) external;
 }
 
 
@@ -45,42 +45,42 @@ contract StoreHub {
         usdcStoreHub = _usdcStoreHub;
     }
     
-    function withdraw(uint256 _collateral) external {
+    function withdraw(uint256 collateral) external {
         require(StoreHubInterface(usdcStoreHub).isValidStore(msg.sender) == true);
         uint256 balance = storeBalance[msg.sender] - 1;
         totalSupply += ((balance * 700)/10000);
         storeBalance[msg.sender] = 1;
         daiContract.transfer(msg.sender, balance);
-        emit CollateralTransfer(address(0), msg.sender, _collateral, 0, false);
+        emit CollateralTransfer(address(0), msg.sender, collateral, 0, false);
     }
     
-    function initBalance(address _store) external {
+    function initBalance(address store) external {
         require(usdcStoreHub != address(0));
         require(msg.sender == usdcStoreHub);
-        storeBalance[_store] = 1;
+        storeBalance[store] = 1;
     }
     
     function callEvent(
-        address _value1,
-        uint256 _value2, 
-        uint256 _value3, 
-        bool _value4,
-        uint _option
+        address value1,
+        uint256 value2, 
+        uint256 value3, 
+        bool value4,
+        uint option
     ) external {
         require(StoreHubInterface(usdcStoreHub).isValidStore(msg.sender) == true);
-        _value1;
+        value1;
         
-        if(_option == 0) {
-            emit StakeUpdated(msg.sender, _value2);
+        if(option == 0) {
+            emit StakeUpdated(msg.sender, value2);
         }
-        else if(_option == 1) {
-            emit CollateralReliefUpdated(msg.sender, _value2, _value3, _value4);
+        else if(option == 1) {
+            emit CollateralReliefUpdated(msg.sender, value2, value3, value4);
         }
-        else if(_option == 2) {
-            emit CollateralTransfer(msg.sender, _value1, _value2, _value3, _value4);
+        else if(option == 2) {
+            emit CollateralTransfer(msg.sender, value1, value2, value3, value4);
         }
-        else if(_option == 3) {
-            emit AtokenTransfer(msg.sender, _value1, _value2);
+        else if(option == 3) {
+            emit AtokenTransfer(msg.sender, value1, value2);
         }
     }
 }
@@ -92,8 +92,8 @@ contract mDAI is StoreHub {
     string public symbol = "mDAI";
     uint public decimals = 18;
     
-    event Transfer(address indexed _from, address indexed _to, uint256 _amount);
-    event Approval(address indexed _owner, address indexed _spender, uint256 _amount);
+    event Transfer(address indexed from, address indexed to, uint256 amount);
+    event Approval(address indexed owner, address indexed spender, uint256 amount);
     
     mapping(address => uint256) balances;
     mapping (address => mapping (address => uint256)) allowed;
@@ -102,88 +102,88 @@ contract mDAI is StoreHub {
         daiContract = ERC20(_daiContract);
     }
     
-    function balanceOf(address _owner) public view returns (uint256 balance) {
-        return balances[_owner];
+    function balanceOf(address owner) public view returns (uint256 balance) {
+        return balances[owner];
     }
     
-    function transfer(address _to, uint256 _amount) public returns (bool success) {
-        require(balances[msg.sender] >= _amount);
+    function transfer(address to, uint256 amount) public returns (bool success) {
+        require(balances[msg.sender] >= amount);
         
-        if(StoreHubInterface(usdcStoreHub).isValidStore(_to) == true) {
-            StoreInterface store = StoreInterface(_to);
-            burn(store, msg.sender, 0, _amount); 
+        if(StoreHubInterface(usdcStoreHub).isValidStore(to) == true) {
+            StoreInterface store = StoreInterface(to);
+            burn(store, msg.sender, 0, amount); 
             return true;
         }
         
-        balances[_to] += _amount;
-        balances[msg.sender] -= _amount;
-        emit Transfer(msg.sender, _to, _amount);
+        balances[to] += amount;
+        balances[msg.sender] -= amount;
+        emit Transfer(msg.sender, to, amount);
         return true;
     }
     
-    function transferFrom(address _from, address _to, uint256 _amount) public returns (bool success) {
-        require(balances[_from] >= _amount);
+    function transferFrom(address from, address to, uint256 amount) public returns (bool success) {
+        require(balances[from] >= amount);
         
-        if(StoreHubInterface(usdcStoreHub).isValidStore(_to) == true) {
-            StoreInterface store = StoreInterface(_to);
-            burn(store, _from, 0, _amount); 
+        if(StoreHubInterface(usdcStoreHub).isValidStore(to) == true) {
+            StoreInterface store = StoreInterface(to);
+            burn(store, from, 0, amount); 
             return true;
         }
         
-        if (_from != msg.sender && allowed[_from][msg.sender] < (2**256 - 1)) {
-            require(allowed[_from][msg.sender] >= _amount);
-            allowed[_from][msg.sender] -= _amount;
+        if (from != msg.sender && allowed[from][msg.sender] < (2**256 - 1)) {
+            require(allowed[from][msg.sender] >= amount);
+            allowed[from][msg.sender] -= amount;
         }
         
-        balances[_to] += _amount;
-        balances[_from] -= _amount;
-        emit Transfer(_from, _to, _amount);
+        balances[to] += amount;
+        balances[from] -= amount;
+        emit Transfer(from, to, amount);
         return true;
     }
     
-    function approve(address _spender, uint256 _amount) public returns (bool success) {
-        allowed[msg.sender][_spender] = _amount;
-        emit Approval(msg.sender, _spender, _amount);
+    function approve(address spender, uint256 amount) public returns (bool success) {
+        allowed[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
         return true;
     }
    
-    function allowance(address _owner, address _spender) public view returns (uint remaining) {
-        return allowed[_owner][_spender];
+    function allowance(address owner, address spender) public view returns (uint remaining) {
+        return allowed[owner][spender];
     }
     
-    function mint(StoreInterface _store, uint256 _tokenID, uint256 _amount) external {
-        (uint256 stake, address extensionAddress) = _store.getExtensionStake(2);
-        uint256 cashbackAmount = ((_amount * 700) / 10000);
-        uint256 prevStoreBalance = (storeBalance[address(_store)] += _amount) - _amount;
+    function mint(StoreInterface store, uint256 tokenID, uint256 amount) external {
+        (uint256 stake, address extensionAddress) = store.getExtensionStake(2);
+        uint256 cashbackAmount = ((amount * 700) / 10000);
+        uint256 prevStoreBalance = (storeBalance[address(store)] += amount) - amount;
         require(cashbackAmount >= 1);
         require((stake - (((prevStoreBalance - 1) * 700) / 10000)) >= cashbackAmount); 
         balances[msg.sender] += cashbackAmount;
-        daiContract.transferFrom(msg.sender, address(this), _amount);
+        daiContract.transferFrom(msg.sender, address(this), amount);
         
         if(extensionAddress != address(0)) {
-            StoreExtension(extensionAddress).processPayment(msg.sender, _tokenID, _amount);
+            StoreExtension(extensionAddress).processPayment(msg.sender, tokenID, amount);
         }
-        emit Transfer(address(_store), msg.sender, cashbackAmount);
+        emit Transfer(address(store), msg.sender, cashbackAmount);
     }
     
-    function burn(StoreInterface _store, address _from, uint256 _tokenID, uint256 _amount) public {
-        (uint256 collateral, address extensionAddress) = _store.getExtensionCollateral(2);
-        require(StoreHubInterface(usdcStoreHub).isValidStore(address(_store)) == true);
-        require(collateral >= _amount);
-        require(balances[_from] >= _amount);
+    function burn(StoreInterface store, address from, uint256 tokenID, uint256 amount) public {
+        (uint256 collateral, address extensionAddress) = store.getExtensionCollateral(2);
+        require(StoreHubInterface(usdcStoreHub).isValidStore(address(store)) == true);
+        require(collateral >= amount);
+        require(balances[from] >= amount);
         
-        if (_from != msg.sender && allowed[_from][msg.sender] < (2**256 - 1)) {
-            require(allowed[_from][msg.sender] >= _amount);
-            allowed[_from][msg.sender] -= _amount;
+        if (from != msg.sender && allowed[from][msg.sender] < (2**256 - 1)) {
+            require(allowed[from][msg.sender] >= amount);
+            allowed[from][msg.sender] -= amount;
         }
         
-        _store.updateCollateral(_amount, 2);
-        balances[_from] -= _amount; 
-        totalSupply -= _amount;
-        
+        store.updateCollateral(amount, 2);
+        balances[from] -= amount; 
+        totalSupply -= amount;
+    
         if(extensionAddress != address(0)) {
-            StoreExtension(extensionAddress).processPayment(msg.sender, _tokenID, _amount);
+            StoreExtension(extensionAddress).processPayment(msg.sender, tokenID, amount);
         }
-        emit Transfer(msg.sender, address(_store), _amount);
+        emit Transfer(msg.sender, address(store), amount);
     }
 }

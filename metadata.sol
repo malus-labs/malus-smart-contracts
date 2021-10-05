@@ -15,13 +15,13 @@ contract Metadata {
     
     StoreHubInterface usdcHub;
     
-    constructor(address _hub) {
-        usdcHub = StoreHubInterface(_hub);
+    constructor(address hub) {
+        usdcHub = StoreHubInterface(hub);
     }
     
-    function setMetaData(address _store, string[7] calldata _metaData) external {
-        require(usdcHub.isValidStore(_store) == true);
-        require(StoreProxy(_store).owner() == msg.sender);
-        emit MetaDataUpdated(_store, _metaData);
+    function setMetaData(address store, string[7] calldata metaData) external {
+        require(usdcHub.isValidStore(store) == true);
+        require(StoreProxy(store).owner() == msg.sender);
+        emit MetaDataUpdated(store, metaData);
     }
 }
