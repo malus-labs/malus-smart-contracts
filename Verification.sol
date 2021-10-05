@@ -16,15 +16,15 @@ contract Verification {
         controller = msg.sender;
     }
     
-    function changeContoller(address _newContoller) onlyContoller external {
-        controller = _newContoller;
+    function changeContoller(address newContoller) onlyContoller external {
+        controller = newContoller;
     }
     
-    function addVerification(bytes32 _node) onlyContoller public {
-        emit UpdateVerification(_node, true);
+    function addVerification(bytes32 node) onlyContoller public {
+        emit UpdateVerification(node, true);
     }
     
-    function removeVerification(bytes32 _node) onlyContoller public {
-        emit UpdateVerification(_node, false);
+    function removeVerification(bytes32 node) onlyContoller public {
+        emit UpdateVerification(node, false);
     }
 }
